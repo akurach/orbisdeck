@@ -9,7 +9,8 @@ const EMPTY_SETTINGS: ProjectSettings = {
   testCommand: '',
   buildCommand: '',
   docsPath: 'docs/',
-  claudeMdPath: './CLAUDE.md'
+  claudeMdPath: './CLAUDE.md',
+  autoLaunchCommand: 'claude'
 }
 
 export function emptySettings(): ProjectSettings {

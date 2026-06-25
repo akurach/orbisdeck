@@ -8,6 +8,7 @@ import type { ProjectId, TerminalDataEvent, TerminalExitEvent } from '../shared/
 
 const api: CockpitApi = {
   pickDirectory: () => ipcRenderer.invoke(IpcChannels.pickDirectory),
+  detectProjectSettings: (path) => ipcRenderer.invoke(IpcChannels.detectProjectSettings, path),
   getState: () => ipcRenderer.invoke(IpcChannels.getState),
   addProject: (input) => ipcRenderer.invoke(IpcChannels.addProject, input),
   updateProject: (id, patch) => ipcRenderer.invoke(IpcChannels.updateProject, id, patch),
@@ -28,6 +29,12 @@ const api: CockpitApi = {
   readFile: (projectId, relPath) => ipcRenderer.invoke(IpcChannels.readFile, projectId, relPath),
   watchProject: (projectId) => ipcRenderer.invoke(IpcChannels.watchProject, projectId),
   unwatchProject: (projectId) => ipcRenderer.invoke(IpcChannels.unwatchProject, projectId),
+
+  getDockerStatus: (projectId) => ipcRenderer.invoke(IpcChannels.getDockerStatus, projectId),
+  dockerAction: (projectId, action) =>
+    ipcRenderer.invoke(IpcChannels.dockerAction, projectId, action),
+  getDockerLogs: (projectId, service) =>
+    ipcRenderer.invoke(IpcChannels.getDockerLogs, projectId, service),
 
   getGlobalClaude: () => ipcRenderer.invoke(IpcChannels.getGlobalClaude),
   readClaudeFile: (relPath) => ipcRenderer.invoke(IpcChannels.readClaudeFile, relPath),

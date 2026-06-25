@@ -10,6 +10,18 @@ import { join, relative, resolve, sep } from 'node:path'
 import type { DirEntry, FileContent } from '../shared/types'
 
 const READ_CAP = 512 * 1024
+const IMAGE_CAP = 8 * 1024 * 1024
+
+const IMAGE_MIME_BY_EXT: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  ico: 'image/x-icon',
+  svg: 'image/svg+xml'
+}
 const IGNORED_DIRS = new Set([
   '.git',
   'node_modules',
@@ -100,6 +112,33 @@ export class FileService {
       truncated: false,
       binary: false
     }
+    // Images: return an inline preview payload instead of refusing as binary.
+    const mime = IMAGE_MIME_BY_EXT[ext]
+    if (mime) {
+      let bytes = 0
+      try {
+        bytes = statSync(abs).size
+      } catch {
+        return result
+      }
+      if (bytes > IMAGE_CAP) {
+        result.image = { dataUrl: '', mime, bytes, tooLarge: true }
+        return result
+      }
+      try {
+        const data = readFileSync(abs)
+        result.image = {
+          dataUrl: `data:${mime};base64,${data.toString('base64')}`,
+          mime,
+          bytes,
+          tooLarge: false
+        }
+      } catch {
+        return result
+      }
+      return result
+    }
+
     let buf: Buffer
     try {
       buf = readFileSync(abs)

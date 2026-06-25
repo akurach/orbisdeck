@@ -20,12 +20,31 @@ export interface ProjectSettings {
   docsPath: string
   /** Path to the project's CLAUDE.md. */
   claudeMdPath: string
+  /** Command auto-run in the first terminal when the project opens with no live
+   *  terminals (e.g. "claude"). Empty string = open a plain shell instead. */
+  autoLaunchCommand: string
+  /** Extra environment for every terminal in this project, as KEY=VALUE lines. */
+  env?: string
+  /** Working subdirectory (relative to path) terminals start in. Empty = project root. */
+  cwdSubdir?: string
 }
 
 export interface Project {
   id: ProjectId
   name: string
   settings: ProjectSettings
+}
+
+/** Best-effort settings inferred from an existing project's structure. Only keys we
+ *  could infer are present; the UI offers them as editable defaults, never forced. */
+export interface DetectedSettings {
+  runCommand?: string
+  testCommand?: string
+  buildCommand?: string
+  docsPath?: string
+  claudeMdPath?: string
+  /** human-readable detections, e.g. ["package.json (pnpm)", "CLAUDE.md", "docs/"] */
+  sources: string[]
 }
 
 export interface TerminalInfo {
@@ -39,6 +58,8 @@ export interface TerminalInfo {
   startedAt: number
   /** false once the pty has exited. */
   alive: boolean
+  /** OS process id of the pty (fact, from node-pty). 0 if unavailable. */
+  pid: number
 }
 
 export interface SpawnTerminalRequest {
@@ -48,6 +69,8 @@ export interface SpawnTerminalRequest {
   command?: string
   /** Working dir; defaults to the project path. */
   cwd?: string
+  /** Extra environment merged over the inherited process env. */
+  env?: Record<string, string>
   cols: number
   rows: number
 }
@@ -101,6 +124,17 @@ export interface DirEntry {
   isDir: boolean
 }
 
+export interface ImagePreview {
+  /** data: URL for inline <img>; '' when the image exceeded the image cap */
+  dataUrl: string
+  /** e.g. "image/png", "image/svg+xml" */
+  mime: string
+  /** file size in bytes */
+  bytes: number
+  /** true if the image exceeded the image read cap and was not loaded */
+  tooLarge: boolean
+}
+
 export interface FileContent {
   path: string
   content: string
@@ -108,8 +142,10 @@ export interface FileContent {
   language: string
   /** true if the file exceeded the read cap and content is partial */
   truncated: boolean
-  /** true if detected binary (content not returned) */
+  /** true if detected binary (content not returned). Images are NOT flagged binary. */
   binary: boolean
+  /** present only for image files — inline preview payload, no editing */
+  image?: ImagePreview
 }
 
 export interface DiffResult {
@@ -119,6 +155,32 @@ export interface DiffResult {
   truncated: boolean
   binary: boolean
 }
+
+// --- M5: Docker (compose-scoped, via the docker CLI) ---
+
+export interface DockerContainer {
+  id: string
+  name: string
+  service: string
+  /** running | exited | paused | restarting | created | … (from `docker compose ps`) */
+  state: string
+  /** human status, e.g. "Up 3 minutes" */
+  status: string
+  /** published ports, best-effort */
+  ports: string
+}
+
+export interface DockerStatus {
+  /** docker CLI present & responsive */
+  available: boolean
+  /** a compose file exists in the project root */
+  hasCompose: boolean
+  containers: DockerContainer[]
+  /** non-empty when something went wrong (CLI missing, compose error) */
+  error: string
+}
+
+export type DockerAction = 'up' | 'down' | 'restart'
 
 // --- M4: Claude-native config (read-only) ---
 

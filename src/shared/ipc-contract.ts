@@ -7,8 +7,11 @@
 
 import type {
   AppState,
+  DetectedSettings,
   DiffResult,
   DirEntry,
+  DockerAction,
+  DockerStatus,
   FileContent,
   GitSummary,
   GlobalClaudeConfig,
@@ -27,6 +30,9 @@ export interface CockpitApi {
   // --- dialogs ---
   /** Open a native folder picker. Returns the chosen absolute path, or null if cancelled. */
   pickDirectory(): Promise<string | null>
+
+  /** Infer run/test/build (+ docs/CLAUDE.md) from an existing project folder's structure. */
+  detectProjectSettings(path: string): Promise<DetectedSettings>
 
   // --- projects ---
   getState(): Promise<AppState>
@@ -55,6 +61,11 @@ export interface CockpitApi {
   watchProject(projectId: ProjectId): Promise<void>
   unwatchProject(projectId: ProjectId): Promise<void>
 
+  // --- docker (M5), compose-scoped via the docker CLI ---
+  getDockerStatus(projectId: ProjectId): Promise<DockerStatus>
+  dockerAction(projectId: ProjectId, action: DockerAction): Promise<{ ok: boolean; error: string }>
+  getDockerLogs(projectId: ProjectId, service?: string): Promise<string>
+
   // --- global Claude config (M4), all read-only ---
   /** Snapshot of ~/.claude: settings, permissions, hooks, MCP servers, commands, CLAUDE.md. */
   getGlobalClaude(): Promise<GlobalClaudeConfig>
@@ -71,6 +82,7 @@ export interface CockpitApi {
 /** IPC channel names — invoke (req/resp). Kept here so main + preload share one source. */
 export const IpcChannels = {
   pickDirectory: 'cockpit:pickDirectory',
+  detectProjectSettings: 'cockpit:detectProjectSettings',
   getState: 'cockpit:getState',
   addProject: 'cockpit:addProject',
   updateProject: 'cockpit:updateProject',
@@ -88,6 +100,9 @@ export const IpcChannels = {
   readFile: 'cockpit:readFile',
   watchProject: 'cockpit:watchProject',
   unwatchProject: 'cockpit:unwatchProject',
+  getDockerStatus: 'cockpit:getDockerStatus',
+  dockerAction: 'cockpit:dockerAction',
+  getDockerLogs: 'cockpit:getDockerLogs',
   getGlobalClaude: 'cockpit:getGlobalClaude',
   readClaudeFile: 'cockpit:readClaudeFile'
 } as const

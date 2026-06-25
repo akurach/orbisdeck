@@ -1,4 +1,4 @@
-# AI Project Cockpit — Roadmap
+# OrbisDeck — Roadmap
 
 > Council-derived plan (CPO · CTO · Engineer · Executive · Chief of Staff).
 > Mockup (`cockpit.png` reference) is the **visual target**, NOT the v1 backlog.
@@ -68,11 +68,74 @@ The load-bearing risk, isolated. Build *packaged*, not just `dev`.
   `claudeMdPath` settings profile through the existing sandboxed `readFile` seam.
 - *This is what makes it a Claude Code cockpit, not just a terminal multiplexer.*
 
-### M5 — Agents (ONLY if a real signal source exists)
-- Revisit only via CTO's Option B: agents = **cockpit-spawned supervised processes**, so
-  PID/cwd/start/exit are *facts*. "Waiting"/"recent messages" stay best-effort heuristics
-  (idle = no output N seconds; messages = last K ANSI-stripped lines).
-- **Never** a TUI-scraper that parses Claude Code's screen output as source of truth.
+### M5 — Beyond the shell · ✅ baseline shipped
+
+The former parking lot, promoted to a committed milestone. Each feature passes the product
+test: *orchestrate an existing local tool, don't reimplement it.* All six groups now have a
+shipped baseline (marked ✅ below); the deferred extensions noted per-group are the remaining
+tail. Built foundation-first: layout → settings → viewer → Docker → CLAUDE.md elements →
+Agents.
+
+**Resizable panels & dynamic layouts** — *(the explicit ask: be able to resize the panes.)*
+- **Baseline — resizable splits. ✅ DONE.** Drag-resizable dividers between the 3 zones
+  (terminal / right panel / bottom panel) with min/max clamps so nothing collapses to
+  unusable; the terminal auto-refits (existing ResizeObserver). Sizes persist per project in
+  localStorage and restore on relaunch. (`Splitter.tsx`, `state/useLayout.ts`.)
+- **Then — dynamic panels. ✅ DONE (show/hide).** Right & bottom panels collapse to a slim
+  restore rail and back, via a header chevron; collapsed state persists per project in
+  `useLayout`. Reorder / re-dock / pop-out / tab-stacking remain future (the "maybe" tier).
+- **Hard constraint:** stays inside the design system — snap to the 8px rhythm, hairline
+  borders, near-zero motion, no free-floating chaos. Not a blank canvas; a small set of
+  *sanctioned* arrangements + show/hide, so any state still looks like the mockup. Decide
+  build-vs-buy on a docking lib (dockview/rc-dock) vs a constrained hand-rolled grid — most
+  are dashboard-airy and fight the IDE-dense aesthetic; lean hand-rolled. The 🎨 Designer
+  agent owns the sanctioned-layouts set.
+
+**Smarter project settings** — three threads on the `ProjectSettings` profile
+(`src/shared/types.ts`), today all hand-typed:
+- *Auto-detect on add.* **✅ DONE.** On folder pick, `detectProjectSettings` (`main/detect.ts`)
+  scans for `package.json` scripts (manager from the lockfile: pnpm/yarn/bun/npm), `Makefile`
+  targets, `Cargo.toml`, `go.mod`, `pyproject.toml`/`setup.py`, plus `CLAUDE.md` & `docs/`.
+  The Add-project modal shows the detections and pre-fills `run`/`test`/`build` as editable
+  defaults (never forced; editable later in Settings).
+- *Richer profile.* **✅ DONE (env + subdir).** `ProjectSettings.env` (KEY=VALUE lines, parsed
+  in `ipc.ts` and merged into every terminal's env) and `cwdSubdir` (terminals start there).
+  Multiple named run targets / pre-launch hooks remain future. Still a profile, not a build
+  system.
+- *Auto-launch on open.* **✅ DONE.** `ProjectSettings.autoLaunchCommand` (default `claude`,
+  empty = plain shell). On open with no live terminals, TerminalPanel spawns it via the login
+  shell (PATH resolves); editable/opt-out in the Settings panel. Persists in the project store.
+
+**Better file viewer — images + rendered markdown** — extends the M3 read-only viewer
+(today: text-only via highlight.js, binaries refused, `.md` shown as source).
+- *Image preview.* **✅ DONE.** `png/jpg/jpeg/gif/webp/bmp/ico/svg` render inline (8 MB cap →
+  "too large" message above it). Main `readFile` returns a base64 `data:` URL on the existing
+  capped seam; CSP already allows `img-src data:`. No editing.
+- *Markdown dual-mode.* **✅ DONE.** Toggle on `.md`: **Просмотр** (rendered) ↔ **Код**.
+  `marked` → `DOMPurify.sanitize` (scripts/handlers stripped); links open in the external
+  browser via the main window-open handler. Default = rendered.
+
+**Project Docker management** — **✅ DONE (compose-scoped MVP).** `main/docker.ts` shells out to
+the `docker` CLI behind the service seam (like `git.ts`). A "Docker" right-panel tab polls
+`docker compose ps --format json` (status = fact); Up (`up -d`) / Restart / Down run via an
+exec IPC, and "Логи" tails `compose logs`. Panel only acts when a compose file
+(`docker-compose.yml`/`compose.yaml`/`compose.yml`) exists; missing CLI / errors are reported
+states, never throws. **Not** a Docker Desktop clone (no image building, registry, volumes).
+Future: live log streaming into a terminal, per-service actions.
+
+**CLAUDE.md as managed elements** — **✅ DONE (non-destructive view).** The Claude tab now has
+an **Элементы / Текст** toggle; "Элементы" parses the project CLAUDE.md by heading into
+collapsible read-only cards (preamble + each `#…` section), indented by level. This is the
+non-destructive *view as elements* step the plan called for. Future (deferred until round-trip
+is proven safe): enable/disable toggles, editing the skill/agent/hook/MCP registrations, and
+write-back through the sandboxed seam.
+
+**Agents (cockpit-spawned supervised processes)** — **✅ DONE (facts-only).** The Agents tab
+lists this project's cockpit-spawned terminals with only facts from node-pty: title, command,
+**PID**, cwd, elapsed since start, and Running/Finished from the live `alive` flag (polled +
+refreshed on the exit event). No "waiting"/message heuristics, no TUI-scraping — exactly the
+CTO's Option B. `TerminalInfo.pid` was added to carry the fact. Future: idle/“waiting”
+heuristic and recent-output preview if a trustworthy signal emerges.
 
 ---
 
@@ -112,6 +175,13 @@ git state inline (M/A/D badges right-aligned). Panel headers small-caps muted la
 
 **Motion** — near-zero. Instant tab switch (no fade). No spinners on the terminal.
 Restraint signals "tool," not "app."
+
+**Consistency (requirement, not nice-to-have)** — one shared size scale, no ad-hoc values.
+Buttons, headers, inputs, tabs, panel chrome, icons, row heights all draw from a single set
+of design tokens (height/padding/font-size/radius steps on the 8px rhythm). Same element
+type = identical size everywhere; a button in Settings matches a button in the toolbar. No
+one-off `px` in components — tokens only. The 🎨 Designer agent defines the scale; treat a
+drift as a bug.
 
 > Read `~/.claude/design-principles.md` before any visual work; the 🎨 Designer agent owns
 > the detailed pass once M1 has a real shell to dress.

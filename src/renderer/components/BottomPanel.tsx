@@ -6,6 +6,8 @@ import { DiffViewer } from './DiffViewer'
 interface Props {
   projectId: ProjectId
   selectedPath: string | null
+  height: number
+  onCollapse: () => void
 }
 
 type Tab = 'preview' | 'diff' | 'logs' | 'notes'
@@ -17,11 +19,16 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'notes', label: 'Заметки' }
 ]
 
-export function BottomPanel({ projectId, selectedPath }: Props): JSX.Element {
+export function BottomPanel({
+  projectId,
+  selectedPath,
+  height,
+  onCollapse
+}: Props): JSX.Element {
   const [tab, setTab] = useState<Tab>('preview')
 
   return (
-    <section className="bottom-panel">
+    <section className="bottom-panel" style={{ height }}>
       <div className="bottom-tabs">
         {TABS.map((t) => (
           <div
@@ -33,6 +40,9 @@ export function BottomPanel({ projectId, selectedPath }: Props): JSX.Element {
           </div>
         ))}
         {selectedPath && <span className="bottom-current">{selectedPath}</span>}
+        <button className="panel-collapse" title="Свернуть панель" onClick={onCollapse}>
+          ⌄
+        </button>
       </div>
       <div className="bottom-body">
         {tab === 'preview' && <FileViewer projectId={projectId} path={selectedPath} />}

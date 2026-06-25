@@ -57,7 +57,7 @@ export class TerminalManager {
       cols: req.cols || 80,
       rows: req.rows || 24,
       cwd,
-      env: { ...process.env, TERM: 'xterm-256color' } as Record<string, string>
+      env: { ...process.env, TERM: 'xterm-256color', ...(req.env ?? {}) } as Record<string, string>
     })
 
     const info: TerminalInfo = {
@@ -67,7 +67,8 @@ export class TerminalManager {
       command,
       cwd,
       startedAt: Date.now(),
-      alive: true
+      alive: true,
+      pid: proc.pid ?? 0
     }
 
     const session: Session = { info, proc, buffer: '', pending: '', flushTimer: null }

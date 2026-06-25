@@ -4,6 +4,8 @@ import { SettingsPanel } from './SettingsPanel'
 import { FileTree } from './FileTree'
 import { GitPanel } from './GitPanel'
 import { ClaudePanel } from './ClaudePanel'
+import { AgentsPanel } from './AgentsPanel'
+import { DockerPanel } from './DockerPanel'
 
 interface Props {
   project: Project
@@ -12,27 +14,20 @@ interface Props {
   onSave: (patch: { name?: string; settings?: Partial<ProjectSettings> }) => void
   onRemove: () => void
   onOpenGlobalClaude: () => void
+  width: number
+  onCollapse: () => void
 }
 
-type Tab = 'files' | 'git' | 'claude' | 'agents' | 'settings'
+type Tab = 'files' | 'git' | 'claude' | 'agents' | 'docker' | 'settings'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'files', label: 'Файлы' },
   { key: 'git', label: 'Git' },
   { key: 'claude', label: 'Claude' },
   { key: 'agents', label: 'Агенты' },
+  { key: 'docker', label: 'Docker' },
   { key: 'settings', label: 'Настройки' }
 ]
-
-// Agents is deferred (roadmap M5). Stubbed honestly rather than faked.
-function Deferred({ milestone, note }: { milestone: string; note: string }): JSX.Element {
-  return (
-    <div className="deferred">
-      <span className="deferred-badge">{milestone}</span>
-      <p>{note}</p>
-    </div>
-  )
-}
 
 export function RightPanel({
   project,
@@ -40,12 +35,14 @@ export function RightPanel({
   onSelectFile,
   onSave,
   onRemove,
-  onOpenGlobalClaude
+  onOpenGlobalClaude,
+  width,
+  onCollapse
 }: Props): JSX.Element {
   const [tab, setTab] = useState<Tab>('settings')
 
   return (
-    <aside className="right-panel">
+    <aside className="right-panel" style={{ width }}>
       <div className="right-tabs">
         {TABS.map((t) => (
           <div
@@ -56,6 +53,9 @@ export function RightPanel({
             {t.label}
           </div>
         ))}
+        <button className="panel-collapse" title="Свернуть панель" onClick={onCollapse}>
+          ›
+        </button>
       </div>
       <div className="right-body">
         {tab === 'settings' && (
@@ -72,12 +72,8 @@ export function RightPanel({
         {tab === 'claude' && (
           <ClaudePanel project={project} onOpenGlobal={onOpenGlobalClaude} />
         )}
-        {tab === 'agents' && (
-          <Deferred
-            milestone="M5"
-            note="Панель агентов появится только при наличии надёжного источника статусов."
-          />
-        )}
+        {tab === 'agents' && <AgentsPanel projectId={project.id} />}
+        {tab === 'docker' && <DockerPanel projectId={project.id} />}
       </div>
     </aside>
   )

@@ -40,7 +40,10 @@ export function TerminalPanel({ project }: Props): JSX.Element {
       } else {
         setTerminals([])
         setActiveId(null)
-        spawn({ title: 'shell' })
+        // Auto-launch the configured command (e.g. `claude`) on open; plain shell if unset.
+        const auto = project.settings.autoLaunchCommand?.trim()
+        if (auto) spawn({ title: auto.split(/\s+/)[0], command: auto })
+        else spawn({ title: 'shell' })
       }
     })
     return () => {

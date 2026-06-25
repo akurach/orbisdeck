@@ -5,6 +5,10 @@ import { Store } from './store'
 
 let services: Services | null = null
 
+// Bundled at <appRoot>/resources/icon.png in both dev (out/main → ../../resources)
+// and packaged builds; the packaged app icon itself comes from resources/icon.icns.
+const ICON_PATH = join(__dirname, '../../resources/icon.png')
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1440,
@@ -13,6 +17,8 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     backgroundColor: '#0d1117',
+    title: 'OrbisDeck',
+    icon: ICON_PATH,
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -38,6 +44,15 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // Dock icon for dev (packaged macOS builds use resources/icon.icns instead).
+  if (process.platform === 'darwin' && app.dock) {
+    try {
+      app.dock.setIcon(ICON_PATH)
+    } catch {
+      /* icon missing in some run modes — non-fatal */
+    }
+  }
+
   const store = new Store()
   services = registerIpc(store)
 

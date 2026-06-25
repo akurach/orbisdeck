@@ -1,4 +1,4 @@
-AI Project Cockpit
+OrbisDeck (рабочее название проекта: AI Project Cockpit)
 
 Цель
 

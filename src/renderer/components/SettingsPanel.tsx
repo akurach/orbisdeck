@@ -13,7 +13,9 @@ const FIELDS: { key: keyof ProjectSettings; label: string; placeholder: string }
   { key: 'testCommand', label: 'Тесты', placeholder: 'npm test' },
   { key: 'buildCommand', label: 'Сборка', placeholder: 'npm run build' },
   { key: 'docsPath', label: 'Документация', placeholder: 'docs/' },
-  { key: 'claudeMdPath', label: 'CLAUDE.md', placeholder: './CLAUDE.md' }
+  { key: 'claudeMdPath', label: 'CLAUDE.md', placeholder: './CLAUDE.md' },
+  { key: 'autoLaunchCommand', label: 'Автозапуск при открытии', placeholder: 'claude (пусто = shell)' },
+  { key: 'cwdSubdir', label: 'Рабочая подпапка', placeholder: 'packages/app (пусто = корень)' }
 ]
 
 export function SettingsPanel({ project, onSave, onRemove }: Props): JSX.Element {
@@ -71,7 +73,7 @@ export function SettingsPanel({ project, onSave, onRemove }: Props): JSX.Element
           <div className="field" key={f.key}>
             <label>{f.label}</label>
             <input
-              value={settings[f.key]}
+              value={settings[f.key] ?? ''}
               placeholder={f.placeholder}
               spellCheck={false}
               onChange={(e) => edit(f.key, e.target.value)}
@@ -79,6 +81,17 @@ export function SettingsPanel({ project, onSave, onRemove }: Props): JSX.Element
           </div>
         )
       )}
+      <div className="field">
+        <label>Переменные окружения (KEY=VALUE построчно)</label>
+        <textarea
+          className="settings-env"
+          rows={3}
+          value={settings.env ?? ''}
+          placeholder={'API_URL=http://localhost:3000\nDEBUG=1'}
+          spellCheck={false}
+          onChange={(e) => edit('env', e.target.value)}
+        />
+      </div>
       <div className="settings-actions">
         <button className="btn primary" disabled={!dirty} onClick={save}>
           Сохранить

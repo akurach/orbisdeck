@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { ProjectSettings } from '../../shared/types'
+import type { DetectedSettings, ProjectSettings } from '../../shared/types'
 import { emptySettings } from '../state/useCockpit'
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
 export function AddProjectModal({ onCancel, onCreate }: Props): JSX.Element {
   const [name, setName] = useState('')
   const [path, setPath] = useState('')
+  const [detected, setDetected] = useState<DetectedSettings | null>(null)
 
   const canCreate = name.trim().length > 0 && path.trim().length > 0
 
@@ -22,11 +23,27 @@ export function AddProjectModal({ onCancel, onCreate }: Props): JSX.Element {
       const base = chosen.split('/').filter(Boolean).pop()
       if (base) setName(base)
     }
+    // Scan an existing project's structure for run/test/build defaults.
+    try {
+      setDetected(await window.cockpit.detectProjectSettings(chosen))
+    } catch {
+      setDetected(null)
+    }
   }
 
   const create = (): void => {
     if (!canCreate) return
-    onCreate(name.trim(), { ...emptySettings(), path: path.trim() })
+    // Detected values are editable defaults: applied only where they were inferred,
+    // never overriding anything (settings are otherwise empty at creation).
+    const settings: ProjectSettings = { ...emptySettings(), path: path.trim() }
+    if (detected) {
+      if (detected.runCommand) settings.runCommand = detected.runCommand
+      if (detected.testCommand) settings.testCommand = detected.testCommand
+      if (detected.buildCommand) settings.buildCommand = detected.buildCommand
+      if (detected.docsPath) settings.docsPath = detected.docsPath
+      if (detected.claudeMdPath) settings.claudeMdPath = detected.claudeMdPath
+    }
+    onCreate(name.trim(), settings)
   }
 
   return (
@@ -54,6 +71,19 @@ export function AddProjectModal({ onCancel, onCreate }: Props): JSX.Element {
             </span>
           </div>
         </div>
+        {detected && detected.sources.length > 0 && (
+          <div className="detected">
+            <div className="detected-head">
+              Обнаружено: {detected.sources.join(', ')}
+            </div>
+            <ul className="detected-list">
+              {detected.runCommand && <li>Запуск: <code>{detected.runCommand}</code></li>}
+              {detected.testCommand && <li>Тесты: <code>{detected.testCommand}</code></li>}
+              {detected.buildCommand && <li>Сборка: <code>{detected.buildCommand}</code></li>}
+            </ul>
+            <div className="detected-note">Можно изменить в настройках после создания.</div>
+          </div>
+        )}
         <div className="modal-actions">
           <button className="btn" onClick={onCancel}>
             Отмена

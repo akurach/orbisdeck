@@ -57,7 +57,7 @@ const TEST = `(async () => {
   out.hasSrcDir = dir.some(e => e.name === 'src' && e.isDir)
   out.ignoresNodeModules = !dir.some(e => e.name === 'node_modules')
   const file = await window.cockpit.readFile(proj.id, 'package.json')
-  out.readWorks = file.content.includes('ai-project-cockpit')
+  out.readWorks = file.content.includes('orbisdeck')
   out.lang = file.language
   const diff = await window.cockpit.getDiff(proj.id)
   out.diffOk = typeof diff.text === 'string'
