@@ -112,6 +112,8 @@ export interface AppState {
   activeProjectId: ProjectId | null
   /** true once the user has been offered the live-agents (hooks) setup, so we don't re-ask */
   agentHooksPrompted?: boolean
+  /** per-project free-text notes (bottom panel) */
+  notes?: Record<ProjectId, string>
 }
 
 /** Whether the live-agents Claude hooks are installed in ~/.claude/settings.json. */

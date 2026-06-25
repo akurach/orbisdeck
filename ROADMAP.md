@@ -139,6 +139,32 @@ heuristic and recent-output preview if a trustworthy signal emerges.
 
 ---
 
+### M6 — Make it usable (post-dogfood feedback)
+
+Requests from real use; ordered roughly by value/effort.
+
+- **Bottom panel: Logs + Notes are stubs.** *Notes* — per-project free-text notes, editable,
+  persisted in the store (cheap, do first). *Logs* — decide what it shows (app/main-process
+  log? the active terminal's captured output? run/test/build history?) before building.
+- **Project Settings clarity.** Each field needs an inline description of what it does
+  (run/test/build/docs/CLAUDE.md/autoLaunch/env/cwdSubdir); the panel reads as a bare form
+  today. Possibly group + add examples.
+- **Global Claude `settings.json` — editable, not a blob.** Currently a read-only JSON tree.
+  Parse the known keys into real controls (toggles, inputs, dropdowns) with labels/help, and
+  write back through a sandboxed writer (atomic + backup, like the hooks installer). Unknown
+  keys fall back to raw JSON. This is the real ask behind "сделай нормальные настройки".
+- **Permissions — explain + manage.** Show allow/ask/deny with a plain-language explainer of
+  what each means; ideally add/remove rules with validation (not just view).
+- **Hooks — readable view.** Present hooks (event → matcher → commands) in a clean, grouped,
+  human layout instead of the current flat list; explain each event.
+- **Notification when a terminal awaits input.** Detect when the active claude/terminal is
+  waiting for the user (idle after a prompt / known "waiting" output) and surface a desktop
+  notification + a tab badge. Hard part: a *reliable* "is waiting" signal without TUI
+  scraping — candidates: pty idle (no output for N s after a write), or a Notification/Stop
+  hook. Prefer the hook path (we already install hooks).
+
+---
+
 ## What we deliberately won't do
 
 - No read-only-only dashboard (dodges the core risk, ships a launcher).

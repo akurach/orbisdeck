@@ -76,6 +76,10 @@ export interface CockpitApi {
   /** Remember that the one-time live-agents offer was shown. */
   markAgentHooksPrompted(): Promise<void>
 
+  // --- notes (M6): per-project free text ---
+  getNote(projectId: ProjectId): Promise<string>
+  setNote(projectId: ProjectId, text: string): Promise<void>
+
   // --- docker (M5), compose-scoped via the docker CLI ---
   getDockerStatus(projectId: ProjectId): Promise<DockerStatus>
   dockerAction(
@@ -125,6 +129,8 @@ export const IpcChannels = {
   installAgentHooks: 'cockpit:installAgentHooks',
   uninstallAgentHooks: 'cockpit:uninstallAgentHooks',
   markAgentHooksPrompted: 'cockpit:markAgentHooksPrompted',
+  getNote: 'cockpit:getNote',
+  setNote: 'cockpit:setNote',
   getDockerStatus: 'cockpit:getDockerStatus',
   dockerAction: 'cockpit:dockerAction',
   getDockerLogs: 'cockpit:getDockerLogs',

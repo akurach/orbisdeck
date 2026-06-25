@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ProjectId } from '../../shared/types'
 import { FileViewer } from './FileViewer'
 import { DiffViewer } from './DiffViewer'
+import { NotesPanel } from './NotesPanel'
 
 interface Props {
   projectId: ProjectId
@@ -57,7 +58,7 @@ export function BottomPanel({
         {tab === 'preview' && <FileViewer projectId={projectId} path={selectedPath} />}
         {tab === 'diff' && <DiffViewer projectId={projectId} path={selectedPath} />}
         {tab === 'logs' && <div className="deferred">Логи появятся позже.</div>}
-        {tab === 'notes' && <div className="deferred">Заметки появятся позже.</div>}
+        {tab === 'notes' && <NotesPanel projectId={projectId} />}
       </div>
     </section>
   )

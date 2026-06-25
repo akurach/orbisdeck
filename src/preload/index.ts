@@ -36,6 +36,8 @@ const api: CockpitApi = {
   installAgentHooks: () => ipcRenderer.invoke(IpcChannels.installAgentHooks),
   uninstallAgentHooks: () => ipcRenderer.invoke(IpcChannels.uninstallAgentHooks),
   markAgentHooksPrompted: () => ipcRenderer.invoke(IpcChannels.markAgentHooksPrompted),
+  getNote: (projectId) => ipcRenderer.invoke(IpcChannels.getNote, projectId),
+  setNote: (projectId, text) => ipcRenderer.invoke(IpcChannels.setNote, projectId, text),
   getDockerStatus: (projectId) => ipcRenderer.invoke(IpcChannels.getDockerStatus, projectId),
   dockerAction: (projectId, action, service) =>
     ipcRenderer.invoke(IpcChannels.dockerAction, projectId, action, service),

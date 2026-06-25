@@ -169,6 +169,8 @@ export function registerIpc(store: Store): Services {
   ipcMain.handle(IpcChannels.installAgentHooks, () => agentHooks.install())
   ipcMain.handle(IpcChannels.uninstallAgentHooks, () => agentHooks.uninstall())
   ipcMain.handle(IpcChannels.markAgentHooksPrompted, () => store.markAgentHooksPrompted())
+  ipcMain.handle(IpcChannels.getNote, (_e, id: ProjectId) => store.getNote(id))
+  ipcMain.handle(IpcChannels.setNote, (_e, id: ProjectId, text: string) => store.setNote(id, text))
 
   // --- docker (M5) ---
   ipcMain.handle(IpcChannels.getDockerStatus, (_e, id: ProjectId) => docker.status(projectPath(id)))

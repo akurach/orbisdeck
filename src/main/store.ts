@@ -26,7 +26,8 @@ export class Store {
         return {
           projects: raw.projects ?? [],
           activeProjectId: raw.activeProjectId ?? null,
-          agentHooksPrompted: raw.agentHooksPrompted ?? false
+          agentHooksPrompted: raw.agentHooksPrompted ?? false,
+          notes: raw.notes ?? {}
         }
       }
     } catch (err) {
@@ -50,6 +51,17 @@ export class Store {
 
   markAgentHooksPrompted(): void {
     this.state.agentHooksPrompted = true
+    this.persist()
+  }
+
+  getNote(id: ProjectId): string {
+    return this.state.notes?.[id] ?? ''
+  }
+
+  setNote(id: ProjectId, text: string): void {
+    this.state.notes = this.state.notes ?? {}
+    if (text) this.state.notes[id] = text
+    else delete this.state.notes[id]
     this.persist()
   }
 
