@@ -7,13 +7,19 @@ export interface Layout {
   bottomHeight: number
   rightCollapsed: boolean
   bottomCollapsed: boolean
+  /** which side the context (right) panel docks: 'right' (default) or 'left' */
+  panelSide: 'right' | 'left'
+  /** where the bottom panel docks: 'bottom' (default) or 'top' */
+  bottomSide: 'bottom' | 'top'
 }
 
 const DEFAULTS: Layout = {
   rightWidth: 380,
   bottomHeight: 280,
   rightCollapsed: false,
-  bottomCollapsed: false
+  bottomCollapsed: false,
+  panelSide: 'right',
+  bottomSide: 'bottom'
 }
 
 const RIGHT_MIN = 300
@@ -43,6 +49,8 @@ export interface UseLayout extends Layout {
   commit: () => void
   toggleRight: () => void
   toggleBottom: () => void
+  toggleSide: () => void
+  toggleBottomSide: () => void
 }
 
 export function useLayout(projectId: string): UseLayout {
@@ -61,7 +69,9 @@ export function useLayout(projectId: string): UseLayout {
       rightWidth: clamp(next.rightWidth, RIGHT_MIN, RIGHT_MAX),
       bottomHeight: clamp(next.bottomHeight, BOTTOM_MIN, bottomMax()),
       rightCollapsed: !!next.rightCollapsed,
-      bottomCollapsed: !!next.bottomCollapsed
+      bottomCollapsed: !!next.bottomCollapsed,
+      panelSide: next.panelSide === 'left' ? 'left' : 'right',
+      bottomSide: next.bottomSide === 'top' ? 'top' : 'bottom'
     })
   }, [projectId])
 
@@ -109,5 +119,30 @@ export function useLayout(projectId: string): UseLayout {
     })
   }, [persist])
 
-  return { ...layout, resizeRight, resizeBottom, commit, toggleRight, toggleBottom }
+  const toggleSide = useCallback(() => {
+    setLayout((p) => {
+      const next: Layout = { ...p, panelSide: p.panelSide === 'left' ? 'right' : 'left' }
+      persist(next)
+      return next
+    })
+  }, [persist])
+
+  const toggleBottomSide = useCallback(() => {
+    setLayout((p) => {
+      const next: Layout = { ...p, bottomSide: p.bottomSide === 'top' ? 'bottom' : 'top' }
+      persist(next)
+      return next
+    })
+  }, [persist])
+
+  return {
+    ...layout,
+    resizeRight,
+    resizeBottom,
+    commit,
+    toggleRight,
+    toggleBottom,
+    toggleSide,
+    toggleBottomSide
+  }
 }

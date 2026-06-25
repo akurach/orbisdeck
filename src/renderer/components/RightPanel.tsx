@@ -6,6 +6,7 @@ import { GitPanel } from './GitPanel'
 import { ClaudePanel } from './ClaudePanel'
 import { AgentsPanel } from './AgentsPanel'
 import { DockerPanel } from './DockerPanel'
+import { moveItem, useTabReorder } from '../state/useTabReorder'
 
 interface Props {
   project: Project
@@ -16,6 +17,7 @@ interface Props {
   onOpenGlobalClaude: () => void
   width: number
   onCollapse: () => void
+  onSwapSide: () => void
 }
 
 type Tab = 'files' | 'git' | 'claude' | 'agents' | 'docker' | 'settings'
@@ -29,6 +31,20 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'settings', label: 'Настройки' }
 ]
 
+const ORDER_KEY = 'orbisdeck:right-tab-order'
+
+function loadOrder(): Tab[] {
+  try {
+    const saved = JSON.parse(localStorage.getItem(ORDER_KEY) || '[]') as Tab[]
+    const valid = saved.filter((k) => TABS.some((t) => t.key === k))
+    // Append any tabs missing from the saved order (e.g. new tabs added in an update).
+    for (const t of TABS) if (!valid.includes(t.key)) valid.push(t.key)
+    return valid
+  } catch {
+    return TABS.map((t) => t.key)
+  }
+}
+
 export function RightPanel({
   project,
   selectedPath,
@@ -37,22 +53,42 @@ export function RightPanel({
   onRemove,
   onOpenGlobalClaude,
   width,
-  onCollapse
+  onCollapse,
+  onSwapSide
 }: Props): JSX.Element {
   const [tab, setTab] = useState<Tab>('settings')
+  const [order, setOrder] = useState<Tab[]>(loadOrder)
+
+  const dragTab = useTabReorder((from, to) => {
+    setOrder((prev) => {
+      const next = moveItem(prev, from, to)
+      try {
+        localStorage.setItem(ORDER_KEY, JSON.stringify(next))
+      } catch {
+        /* storage unavailable */
+      }
+      return next
+    })
+  })
+
+  const labelOf = (k: Tab): string => TABS.find((t) => t.key === k)!.label
 
   return (
     <aside className="right-panel" style={{ width }}>
       <div className="right-tabs">
-        {TABS.map((t) => (
+        {order.map((key, i) => (
           <div
-            key={t.key}
-            className={`right-tab ${tab === t.key ? 'active' : ''}`}
-            onClick={() => setTab(t.key)}
+            key={key}
+            className={`right-tab ${tab === key ? 'active' : ''}`}
+            onClick={() => setTab(key)}
+            {...dragTab(i)}
           >
-            {t.label}
+            {labelOf(key)}
           </div>
         ))}
+        <button className="panel-collapse" title="Поменять сторону панели" onClick={onSwapSide}>
+          ⇄
+        </button>
         <button className="panel-collapse" title="Свернуть панель" onClick={onCollapse}>
           ›
         </button>

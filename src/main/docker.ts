@@ -80,14 +80,20 @@ export class DockerService {
     }
   }
 
-  async action(root: string, action: DockerAction): Promise<{ ok: boolean; error: string }> {
+  async action(
+    root: string,
+    action: DockerAction,
+    service?: string
+  ): Promise<{ ok: boolean; error: string }> {
     if (!root || !composeFile(root)) return { ok: false, error: 'нет compose-файла' }
+    // Per-service when `service` is given, else whole project. `down` is project-wide only.
+    const svc = service ? [service] : []
     const args =
       action === 'up'
-        ? ['compose', 'up', '-d']
+        ? ['compose', 'up', '-d', ...svc]
         : action === 'down'
           ? ['compose', 'down']
-          : ['compose', 'restart']
+          : ['compose', action, ...svc] // restart | start | stop
     try {
       await run(root, args, 120_000)
       return { ok: true, error: '' }

@@ -14,6 +14,7 @@ const api: CockpitApi = {
   updateProject: (id, patch) => ipcRenderer.invoke(IpcChannels.updateProject, id, patch),
   removeProject: (id) => ipcRenderer.invoke(IpcChannels.removeProject, id),
   setActiveProject: (id) => ipcRenderer.invoke(IpcChannels.setActiveProject, id),
+  reorderProjects: (ids) => ipcRenderer.invoke(IpcChannels.reorderProjects, ids),
 
   listTerminals: (projectId) => ipcRenderer.invoke(IpcChannels.listTerminals, projectId),
   spawnTerminal: (req) => ipcRenderer.invoke(IpcChannels.spawnTerminal, req),
@@ -30,9 +31,10 @@ const api: CockpitApi = {
   watchProject: (projectId) => ipcRenderer.invoke(IpcChannels.watchProject, projectId),
   unwatchProject: (projectId) => ipcRenderer.invoke(IpcChannels.unwatchProject, projectId),
 
+  getAgents: (projectId) => ipcRenderer.invoke(IpcChannels.getAgents, projectId),
   getDockerStatus: (projectId) => ipcRenderer.invoke(IpcChannels.getDockerStatus, projectId),
-  dockerAction: (projectId, action) =>
-    ipcRenderer.invoke(IpcChannels.dockerAction, projectId, action),
+  dockerAction: (projectId, action, service) =>
+    ipcRenderer.invoke(IpcChannels.dockerAction, projectId, action, service),
   getDockerLogs: (projectId, service) =>
     ipcRenderer.invoke(IpcChannels.getDockerLogs, projectId, service),
 

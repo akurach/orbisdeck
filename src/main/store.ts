@@ -77,6 +77,15 @@ export class Store {
     this.persist()
   }
 
+  /** Reorder projects to match the given id order; any ids not listed keep their tail order. */
+  reorderProjects(ids: ProjectId[]): void {
+    const byId = new Map(this.state.projects.map((p) => [p.id, p]))
+    const next = ids.map((id) => byId.get(id)).filter((p): p is NonNullable<typeof p> => !!p)
+    for (const p of this.state.projects) if (!ids.includes(p.id)) next.push(p)
+    this.state.projects = next
+    this.persist()
+  }
+
   getProject(id: ProjectId): Project | undefined {
     return this.state.projects.find((x) => x.id === id)
   }

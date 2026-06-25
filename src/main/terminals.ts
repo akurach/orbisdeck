@@ -89,7 +89,12 @@ export class TerminalManager {
     // Maintain the scrollback tail incrementally.
     session.buffer += chunk
     if (session.buffer.length > MAX_BUFFER) {
-      session.buffer = session.buffer.slice(session.buffer.length - MAX_BUFFER)
+      let cut = session.buffer.slice(session.buffer.length - MAX_BUFFER)
+      // Don't start the replayed tail mid-escape-sequence (corrupts the screen on
+      // reattach). Drop the leading partial line up to the first newline.
+      const nl = cut.indexOf('\n')
+      if (nl > 0) cut = cut.slice(nl + 1)
+      session.buffer = cut
     }
     if (session.flushTimer) return
     session.flushTimer = setTimeout(() => this.flush(session), FLUSH_MS)

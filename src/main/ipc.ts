@@ -3,6 +3,7 @@
 
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { join } from 'node:path'
+import { readFileSync, statSync } from 'node:fs'
 import { IpcChannels, IpcEvents } from '../shared/ipc-contract'
 import type { ProjectId, SpawnTerminalRequest, TerminalId } from '../shared/types'
 import { Store } from './store'
@@ -11,6 +12,7 @@ import { GitService } from './git'
 import { FileService } from './files'
 import { ClaudeService } from './claude'
 import { DockerService } from './docker'
+import { AgentsService } from './agents'
 import { detectProjectSettings } from './detect'
 import type { DockerAction } from '../shared/types'
 
@@ -19,18 +21,41 @@ export interface Services {
   files: FileService
 }
 
-/** Parse KEY=VALUE lines (blanks and #comments ignored) into an env record. */
-function parseEnv(text?: string): Record<string, string> | undefined {
-  if (!text) return undefined
+/** Parse KEY=VALUE lines (blanks/#comments ignored). Strips matching surrounding quotes. */
+function parseEnvText(text: string): Record<string, string> {
   const env: Record<string, string> = {}
   for (const raw of text.split('\n')) {
-    const line = raw.trim()
+    let line = raw.trim()
     if (!line || line.startsWith('#')) continue
+    if (line.startsWith('export ')) line = line.slice(7).trim()
     const eq = line.indexOf('=')
     if (eq <= 0) continue
-    env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim()
+    const key = line.slice(0, eq).trim()
+    let val = line.slice(eq + 1).trim()
+    if (val.length >= 2 && ((val[0] === '"' && val.endsWith('"')) || (val[0] === "'" && val.endsWith("'")))) {
+      val = val.slice(1, -1)
+    }
+    env[key] = val
   }
-  return Object.keys(env).length ? env : undefined
+  return env
+}
+
+/** Read a project's .env file (capped), if present. */
+function readDotenv(root: string): Record<string, string> {
+  if (!root) return {}
+  const p = join(root, '.env')
+  try {
+    if (statSync(p).size > 256 * 1024) return {}
+    return parseEnvText(readFileSync(p, 'utf8'))
+  } catch {
+    return {}
+  }
+}
+
+/** Merge the project's .env file with the manual env setting (manual wins). */
+function buildEnv(root: string, text?: string): Record<string, string> | undefined {
+  const merged = { ...readDotenv(root), ...parseEnvText(text ?? '') }
+  return Object.keys(merged).length ? merged : undefined
 }
 
 export function registerIpc(store: Store): Services {
@@ -48,6 +73,7 @@ export function registerIpc(store: Store): Services {
   const files = new FileService()
   const claude = new ClaudeService()
   const docker = new DockerService()
+  const agents = new AgentsService()
 
   const projectPath = (id: ProjectId): string => store.getProject(id)?.settings.path ?? ''
 
@@ -83,6 +109,8 @@ export function registerIpc(store: Store): Services {
     store.setActiveProject(id)
   )
 
+  ipcMain.handle(IpcChannels.reorderProjects, (_e, ids: ProjectId[]) => store.reorderProjects(ids))
+
   ipcMain.handle(IpcChannels.listTerminals, (_e, projectId: ProjectId) =>
     terminals.list(projectId)
   )
@@ -92,7 +120,7 @@ export function registerIpc(store: Store): Services {
     if (!project) throw new Error(`unknown project: ${req.projectId}`)
     const { path, env, cwdSubdir } = project.settings
     const cwd = req.cwd || (cwdSubdir ? join(path, cwdSubdir) : path)
-    return terminals.spawn({ ...req, cwd, env: parseEnv(env) }, path)
+    return terminals.spawn({ ...req, cwd, env: buildEnv(path, env) }, path)
   })
 
   ipcMain.handle(IpcChannels.writeTerminal, (_e, id: TerminalId, data: string) =>
@@ -125,10 +153,15 @@ export function registerIpc(store: Store): Services {
   })
   ipcMain.handle(IpcChannels.unwatchProject, (_e, id: ProjectId) => files.unwatch(id))
 
+  // --- agents (M5) ---
+  ipcMain.handle(IpcChannels.getAgents, (_e, id: ProjectId) => agents.list(projectPath(id)))
+
   // --- docker (M5) ---
   ipcMain.handle(IpcChannels.getDockerStatus, (_e, id: ProjectId) => docker.status(projectPath(id)))
-  ipcMain.handle(IpcChannels.dockerAction, (_e, id: ProjectId, action: DockerAction) =>
-    docker.action(projectPath(id), action)
+  ipcMain.handle(
+    IpcChannels.dockerAction,
+    (_e, id: ProjectId, action: DockerAction, service?: string) =>
+      docker.action(projectPath(id), action, service)
   )
   ipcMain.handle(IpcChannels.getDockerLogs, (_e, id: ProjectId, service?: string) =>
     docker.logs(projectPath(id), service)

@@ -40,6 +40,32 @@ body {
   user-select: none;
 }
 
+/* Dark scrollbars to match the shell (override the native white ones). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #ffffff26;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ffffff40;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 .app {
   display: flex;
   flex-direction: column;
@@ -91,12 +117,35 @@ body {
 }
 
 .project-tab {
-  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 14px;
   border-radius: var(--radius);
   color: var(--text-dim);
   cursor: default;
   white-space: nowrap;
   font-size: 12.5px;
+}
+
+.project-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  color: inherit;
+  opacity: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+.project-tab:hover .project-tab-close {
+  opacity: 0.5;
+}
+.project-tab-close:hover {
+  opacity: 1 !important;
+  background: #ffffff2e;
 }
 
 .project-tab:hover {
@@ -367,19 +416,87 @@ body {
   font-size: 11px;
   color: var(--text-faint);
 }
-.docker-logs {
+.docker-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.btn.xs {
+  padding: 2px 8px;
+  font-size: 11px;
+  height: 22px;
+}
+
+/* logs modal */
+.logs-modal {
+  width: 80vw;
+  max-width: 1000px;
+  height: 70vh;
+  display: flex;
+  flex-direction: column;
+}
+.logs-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.logs-modal-head h2 {
+  margin-right: auto;
+}
+.logs-modal-body {
+  flex: 1;
   margin: 0;
-  padding: 8px 10px;
-  max-height: 220px;
+  padding: 10px 12px;
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 11.5px;
   line-height: 1.5;
   color: var(--text-dim);
   white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+/* json tree (global settings) */
+.json-tree {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+  user-select: text;
+}
+.json-row {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.json-toggle {
+  cursor: pointer;
+}
+.json-toggle:hover {
+  background: var(--bg-elev);
+}
+.json-caret {
+  color: var(--text-faint);
+  margin-right: 4px;
+}
+.json-key {
+  color: var(--accent);
+}
+.json-summary {
+  color: var(--text-faint);
+}
+.json-str {
+  color: var(--green);
+}
+.json-num {
+  color: var(--yellow);
+}
+.json-bool,
+.json-null {
+  color: var(--magenta, #bc8cff);
 }
 
 /* --- agents panel (cockpit-spawned processes) --- */
@@ -389,6 +506,9 @@ body {
   gap: 8px;
   padding: 10px;
   overflow-y: auto;
+}
+.agents-procs-label {
+  margin-top: 8px;
 }
 .agent-card {
   padding: 8px 10px;
@@ -495,16 +615,27 @@ body {
 
 .right-tabs {
   display: flex;
+  align-items: center;
   gap: 2px;
-  padding: 8px 10px;
+  height: 38px;
+  flex: none;
+  padding: 0 6px;
   border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none; /* thin tab strip — hide the scrollbar, drag/scroll still works */
+}
+.right-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .right-tab {
-  padding: 5px 12px;
+  flex: none;
+  padding: 4px 9px;
   border-radius: var(--radius);
   color: var(--text-dim);
-  font-size: 12.5px;
+  font-size: 12px;
+  white-space: nowrap;
   cursor: default;
 }
 
@@ -766,7 +897,9 @@ body {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 6px 10px;
+  height: 38px;
+  flex: none;
+  padding: 0 10px;
   border-bottom: 1px solid var(--border);
 }
 

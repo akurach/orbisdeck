@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Project, TerminalId, TerminalInfo } from '../../shared/types'
 import { TerminalView } from './TerminalView'
+import { moveItem, useTabReorder } from '../state/useTabReorder'
 
 interface Props {
   project: Project
@@ -73,6 +74,10 @@ export function TerminalPanel({ project }: Props): JSX.Element {
     [activeId]
   )
 
+  const dragTab = useTabReorder((from, to) =>
+    setTerminals((prev) => moveItem(prev, from, to))
+  )
+
   const settings = project.settings
   const runDisabled = !settings.runCommand
   const testDisabled = !settings.testCommand
@@ -112,11 +117,12 @@ export function TerminalPanel({ project }: Props): JSX.Element {
       </header>
 
       <div className="term-tabs">
-        {terminals.map((t) => (
+        {terminals.map((t, i) => (
           <div
             key={t.id}
             className={`term-tab ${t.id === activeId ? 'active' : ''} ${t.alive ? '' : 'dead'}`}
             onClick={() => setActiveId(t.id)}
+            {...dragTab(i)}
           >
             <span className={`dot ${t.alive ? 'running' : 'finished'}`} />
             <span className="term-tab-title">{t.title}</span>

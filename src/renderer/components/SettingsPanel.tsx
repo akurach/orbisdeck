@@ -39,6 +39,21 @@ export function SettingsPanel({ project, onSave, onRemove }: Props): JSX.Element
     if (chosen) edit('path', chosen)
   }
 
+  // Re-scan the project structure and fill ONLY the empty run/test/build fields
+  // (never overwrite a value the user already set).
+  const detect = async (): Promise<void> => {
+    if (!settings.path) return
+    const d = await window.cockpit.detectProjectSettings(settings.path)
+    setSettings((s) => ({
+      ...s,
+      runCommand: s.runCommand || d.runCommand || '',
+      testCommand: s.testCommand || d.testCommand || '',
+      buildCommand: s.buildCommand || d.buildCommand || '',
+      env: s.env || d.env || ''
+    }))
+    setDirty(true)
+  }
+
   const save = (): void => {
     onSave({ name, settings })
     setDirty(false)
@@ -93,6 +108,9 @@ export function SettingsPanel({ project, onSave, onRemove }: Props): JSX.Element
         />
       </div>
       <div className="settings-actions">
+        <button className="btn" disabled={!settings.path} onClick={detect} title="Определить run/test/build по структуре">
+          Определить
+        </button>
         <button className="btn primary" disabled={!dirty} onClick={save}>
           Сохранить
         </button>

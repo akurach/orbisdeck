@@ -8,6 +8,7 @@ interface Props {
   selectedPath: string | null
   height: number
   onCollapse: () => void
+  onSwapVertical: () => void
 }
 
 type Tab = 'preview' | 'diff' | 'logs' | 'notes'
@@ -23,7 +24,8 @@ export function BottomPanel({
   projectId,
   selectedPath,
   height,
-  onCollapse
+  onCollapse,
+  onSwapVertical
 }: Props): JSX.Element {
   const [tab, setTab] = useState<Tab>('preview')
 
@@ -40,6 +42,13 @@ export function BottomPanel({
           </div>
         ))}
         {selectedPath && <span className="bottom-current">{selectedPath}</span>}
+        <button
+          className="panel-collapse bottom-swap"
+          title="Поменять местами с консолью (вверх/вниз)"
+          onClick={onSwapVertical}
+        >
+          ⇅
+        </button>
         <button className="panel-collapse" title="Свернуть панель" onClick={onCollapse}>
           ⌄
         </button>

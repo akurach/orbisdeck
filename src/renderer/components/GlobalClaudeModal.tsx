@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import hljs from 'highlight.js/lib/common'
 import 'highlight.js/styles/github-dark.css'
 import type { FileContent, GlobalClaudeConfig } from '../../shared/types'
+import { ClaudeElements } from './ClaudeElements'
+import { JsonTree } from './JsonTree'
 
 interface Props {
   onClose: () => void
@@ -39,10 +41,29 @@ function Code({ code, language }: { code: string; language: string }): JSX.Eleme
   )
 }
 
+// settings.json as a collapsible tree (default) or raw text. Falls back to text
+// if the JSON doesn't parse (e.g. with comments).
+function SettingsView({ text, view }: { text: string; view: 'tree' | 'text' }): JSX.Element {
+  const parsed = useMemo(() => {
+    if (!text) return undefined
+    try {
+      return JSON.parse(text)
+    } catch {
+      return undefined
+    }
+  }, [text])
+
+  if (!text) return <div className="viewer-empty">settings.json отсутствует</div>
+  if (view === 'tree' && parsed !== undefined) return <JsonTree json={parsed} />
+  return <Code code={text} language="json" />
+}
+
 export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
   const [cfg, setCfg] = useState<GlobalClaudeConfig | null>(null)
   const [section, setSection] = useState<Section>('settings')
   const [openCmd, setOpenCmd] = useState<FileContent | null>(null)
+  const [mdView, setMdView] = useState<'elements' | 'text'>('elements')
+  const [settingsView, setSettingsView] = useState<'tree' | 'text'>('tree')
 
   useEffect(() => {
     window.cockpit.getGlobalClaude().then(setCfg)
@@ -105,16 +126,29 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
             <div className="claude-section-body">
               {section === 'settings' && (
                 <>
+                  <div className="claude-head">
+                    <div className="git-section-label">settings.json</div>
+                    <div className="viewer-toggle">
+                      <button
+                        className={`viewer-toggle-btn ${settingsView === 'tree' ? 'active' : ''}`}
+                        onClick={() => setSettingsView('tree')}
+                      >
+                        Дерево
+                      </button>
+                      <button
+                        className={`viewer-toggle-btn ${settingsView === 'text' ? 'active' : ''}`}
+                        onClick={() => setSettingsView('text')}
+                      >
+                        Текст
+                      </button>
+                    </div>
+                  </div>
                   <div className="claude-path">{cfg.settingsPath}</div>
-                  {cfg.settingsText ? (
-                    <Code code={cfg.settingsText} language="json" />
-                  ) : (
-                    <div className="viewer-empty">settings.json отсутствует</div>
-                  )}
+                  <SettingsView text={cfg.settingsText} view={settingsView} />
                   {cfg.localSettingsText && (
                     <>
                       <div className="claude-path">{cfg.localSettingsPath}</div>
-                      <Code code={cfg.localSettingsText} language="json" />
+                      <SettingsView text={cfg.localSettingsText} view={settingsView} />
                     </>
                   )}
                 </>
@@ -209,8 +243,28 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
               {section === 'claudemd' &&
                 (cfg.claudeMdText ? (
                   <>
-                    <div className="claude-path">{cfg.claudeMdPath}</div>
-                    <Code code={cfg.claudeMdText} language="markdown" />
+                    <div className="claude-head">
+                      <div className="claude-path">{cfg.claudeMdPath}</div>
+                      <div className="viewer-toggle">
+                        <button
+                          className={`viewer-toggle-btn ${mdView === 'elements' ? 'active' : ''}`}
+                          onClick={() => setMdView('elements')}
+                        >
+                          Элементы
+                        </button>
+                        <button
+                          className={`viewer-toggle-btn ${mdView === 'text' ? 'active' : ''}`}
+                          onClick={() => setMdView('text')}
+                        >
+                          Текст
+                        </button>
+                      </div>
+                    </div>
+                    {mdView === 'elements' ? (
+                      <ClaudeElements text={cfg.claudeMdText} />
+                    ) : (
+                      <Code code={cfg.claudeMdText} language="markdown" />
+                    )}
                   </>
                 ) : (
                   <div className="viewer-empty">Глобальный CLAUDE.md отсутствует</div>

@@ -6,6 +6,7 @@
 // node-pty / fs / simple-git / electron live behind this. They never cross it.
 
 import type {
+  AgentInfo,
   AppState,
   DetectedSettings,
   DiffResult,
@@ -40,6 +41,8 @@ export interface CockpitApi {
   updateProject(id: ProjectId, patch: Partial<Pick<Project, 'name'>> & { settings?: Partial<ProjectSettings> }): Promise<Project>
   removeProject(id: ProjectId): Promise<void>
   setActiveProject(id: ProjectId | null): Promise<void>
+  /** Persist a new project tab order (array of project ids). */
+  reorderProjects(ids: ProjectId[]): Promise<void>
 
   // --- terminals ---
   listTerminals(projectId: ProjectId): Promise<TerminalInfo[]>
@@ -61,9 +64,16 @@ export interface CockpitApi {
   watchProject(projectId: ProjectId): Promise<void>
   unwatchProject(projectId: ProjectId): Promise<void>
 
+  // --- agents (M5): Claude sub-agents from the live session transcript ---
+  getAgents(projectId: ProjectId): Promise<AgentInfo[]>
+
   // --- docker (M5), compose-scoped via the docker CLI ---
   getDockerStatus(projectId: ProjectId): Promise<DockerStatus>
-  dockerAction(projectId: ProjectId, action: DockerAction): Promise<{ ok: boolean; error: string }>
+  dockerAction(
+    projectId: ProjectId,
+    action: DockerAction,
+    service?: string
+  ): Promise<{ ok: boolean; error: string }>
   getDockerLogs(projectId: ProjectId, service?: string): Promise<string>
 
   // --- global Claude config (M4), all read-only ---
@@ -88,6 +98,7 @@ export const IpcChannels = {
   updateProject: 'cockpit:updateProject',
   removeProject: 'cockpit:removeProject',
   setActiveProject: 'cockpit:setActiveProject',
+  reorderProjects: 'cockpit:reorderProjects',
   listTerminals: 'cockpit:listTerminals',
   spawnTerminal: 'cockpit:spawnTerminal',
   writeTerminal: 'cockpit:writeTerminal',
@@ -100,6 +111,7 @@ export const IpcChannels = {
   readFile: 'cockpit:readFile',
   watchProject: 'cockpit:watchProject',
   unwatchProject: 'cockpit:unwatchProject',
+  getAgents: 'cockpit:getAgents',
   getDockerStatus: 'cockpit:getDockerStatus',
   dockerAction: 'cockpit:dockerAction',
   getDockerLogs: 'cockpit:getDockerLogs',

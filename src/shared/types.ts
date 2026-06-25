@@ -43,8 +43,25 @@ export interface DetectedSettings {
   buildCommand?: string
   docsPath?: string
   claudeMdPath?: string
+  /** raw contents of the project's .env, surfaced so the user can see/edit it */
+  env?: string
   /** human-readable detections, e.g. ["package.json (pnpm)", "CLAUDE.md", "docs/"] */
   sources: string[]
+}
+
+/** A Claude Code sub-agent (Task/Agent tool) read from the live session transcript
+ *  (~/.claude/projects/<cwd>/<session>.jsonl) — structured facts, not TUI scraping. */
+export interface AgentInfo {
+  /** the tool_use id (toolu_…) */
+  id: string
+  /** subagent_type, e.g. "ecc:architect" or "general-purpose" */
+  type: string
+  /** the task description */
+  description: string
+  /** 'running' = tool_use with no tool_result yet; 'done' = result seen */
+  status: 'running' | 'done'
+  /** epoch ms from the transcript line timestamp, 0 if unknown */
+  startedAt: number
 }
 
 export interface TerminalInfo {
@@ -180,7 +197,7 @@ export interface DockerStatus {
   error: string
 }
 
-export type DockerAction = 'up' | 'down' | 'restart'
+export type DockerAction = 'up' | 'down' | 'restart' | 'start' | 'stop'
 
 // --- M4: Claude-native config (read-only) ---
 

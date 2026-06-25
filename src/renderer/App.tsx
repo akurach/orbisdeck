@@ -35,6 +35,50 @@ export function App(): JSX.Element {
 
   const { state, activeProject } = cockpit
 
+  // Bottom dock — rendered above or below the workspace depending on bottomSide.
+  const renderBottomDock = (projectId: string): JSX.Element => {
+    const onTop = layout.bottomSide === 'top'
+    if (layout.bottomCollapsed) {
+      return (
+        <button
+          className={`panel-rail rail-bottom ${onTop ? 'rail-bottom-top' : ''}`}
+          title="Показать нижнюю панель"
+          onClick={layout.toggleBottom}
+        >
+          {onTop ? '⌄' : '⌃'} Нижняя панель
+        </button>
+      )
+    }
+    const splitter = (
+      <Splitter
+        orientation="horizontal"
+        ariaLabel="Изменить высоту нижней панели"
+        onResize={(d) => layout.resizeBottom(onTop ? -d : d)}
+        onResizeEnd={layout.commit}
+      />
+    )
+    const panel = (
+      <BottomPanel
+        projectId={projectId}
+        selectedPath={selectedFile}
+        height={layout.bottomHeight}
+        onCollapse={layout.toggleBottom}
+        onSwapVertical={layout.toggleBottomSide}
+      />
+    )
+    return onTop ? (
+      <>
+        {panel}
+        {splitter}
+      </>
+    ) : (
+      <>
+        {splitter}
+        {panel}
+      </>
+    )
+  }
+
   return (
     <div className="app">
       <header className="topbar">
@@ -44,6 +88,8 @@ export function App(): JSX.Element {
           activeId={state.activeProjectId}
           onSelect={cockpit.setActiveProject}
           onAdd={() => setAdding(true)}
+          onClose={cockpit.removeProject}
+          onReorder={cockpit.reorderProjects}
         />
         <div className="topbar-right">
           <button className="btn global-claude-btn" onClick={() => setGlobalClaude(true)}>
@@ -54,24 +100,22 @@ export function App(): JSX.Element {
 
       {activeProject ? (
         <>
+          {layout.bottomSide === 'top' && renderBottomDock(activeProject.id)}
           <main className="workspace">
-            <TerminalPanel key={activeProject.id} project={activeProject} />
-            {layout.rightCollapsed ? (
-              <button
-                className="panel-rail rail-right"
-                title="Показать правую панель"
-                onClick={layout.toggleRight}
-              >
-                ‹
-              </button>
-            ) : (
-              <>
-                <Splitter
-                  orientation="vertical"
-                  ariaLabel="Изменить ширину правой панели"
-                  onResize={layout.resizeRight}
-                  onResizeEnd={layout.commit}
-                />
+            {(() => {
+              const onLeft = layout.panelSide === 'left'
+              const terminal = (
+                <TerminalPanel key={activeProject.id} project={activeProject} />
+              )
+              const context = layout.rightCollapsed ? (
+                <button
+                  className="panel-rail rail-right"
+                  title="Показать панель"
+                  onClick={layout.toggleRight}
+                >
+                  {onLeft ? '›' : '‹'}
+                </button>
+              ) : (
                 <RightPanel
                   project={activeProject}
                   selectedPath={selectedFile}
@@ -81,34 +125,35 @@ export function App(): JSX.Element {
                   onOpenGlobalClaude={() => setGlobalClaude(true)}
                   width={layout.rightWidth}
                   onCollapse={layout.toggleRight}
+                  onSwapSide={layout.toggleSide}
                 />
-              </>
-            )}
+              )
+              // Splitter sits between terminal and the docked panel; dragging toward the
+              // panel must shrink it regardless of side, so invert the delta on the left.
+              const splitter = layout.rightCollapsed ? null : (
+                <Splitter
+                  orientation="vertical"
+                  ariaLabel="Изменить ширину панели"
+                  onResize={(d) => layout.resizeRight(onLeft ? -d : d)}
+                  onResizeEnd={layout.commit}
+                />
+              )
+              return onLeft ? (
+                <>
+                  {context}
+                  {splitter}
+                  {terminal}
+                </>
+              ) : (
+                <>
+                  {terminal}
+                  {splitter}
+                  {context}
+                </>
+              )
+            })()}
           </main>
-          {layout.bottomCollapsed ? (
-            <button
-              className="panel-rail rail-bottom"
-              title="Показать нижнюю панель"
-              onClick={layout.toggleBottom}
-            >
-              ⌃ Нижняя панель
-            </button>
-          ) : (
-            <>
-              <Splitter
-                orientation="horizontal"
-                ariaLabel="Изменить высоту нижней панели"
-                onResize={layout.resizeBottom}
-                onResizeEnd={layout.commit}
-              />
-              <BottomPanel
-                projectId={activeProject.id}
-                selectedPath={selectedFile}
-                height={layout.bottomHeight}
-                onCollapse={layout.toggleBottom}
-              />
-            </>
-          )}
+          {layout.bottomSide === 'bottom' && renderBottomDock(activeProject.id)}
         </>
       ) : (
         <main className="workspace">

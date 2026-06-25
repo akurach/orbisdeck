@@ -59,6 +59,14 @@ export function useCockpit() {
     [refresh]
   )
 
+  const reorderProjects = useCallback(
+    async (ids: ProjectId[]) => {
+      await window.cockpit.reorderProjects(ids)
+      await refresh()
+    },
+    [refresh]
+  )
+
   const setActiveProject = useCallback(
     async (id: ProjectId) => {
       await window.cockpit.setActiveProject(id)
@@ -77,6 +85,7 @@ export function useCockpit() {
     addProject,
     updateProject,
     removeProject,
+    reorderProjects,
     setActiveProject,
     refresh
   }

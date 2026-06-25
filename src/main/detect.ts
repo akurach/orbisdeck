@@ -109,6 +109,17 @@ function fromGo(root: string, out: DetectedSettings): boolean {
   return true
 }
 
+const COMPOSE_FILES = ['docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'compose.yaml']
+
+function fromCompose(root: string, out: DetectedSettings): boolean {
+  if (!COMPOSE_FILES.some((f) => isFile(join(root, f)))) return false
+  out.sources.push('docker compose')
+  // Fill run/build only if no richer toolchain already did — compose is the fallback.
+  out.runCommand ??= 'docker compose up'
+  out.buildCommand ??= 'docker compose build'
+  return true
+}
+
 export function detectProjectSettings(root: string): DetectedSettings {
   const out: DetectedSettings = { sources: [] }
   if (!root || !isDir(root)) return out
@@ -119,6 +130,23 @@ export function detectProjectSettings(root: string): DetectedSettings {
   fromCargo(root, out)
   fromGo(root, out)
   fromPython(root, out)
+  fromCompose(root, out) // fallback run/build for compose-only projects
+
+  // Surface .env so the user can see/edit the variables (they're also auto-merged at spawn).
+  const envPath = join(root, '.env')
+  if (isFile(envPath)) {
+    try {
+      if (statSync(envPath).size <= 256 * 1024) {
+        const text = readFileSync(envPath, 'utf8').trim()
+        if (text) {
+          out.env = text
+          out.sources.push('.env')
+        }
+      }
+    } catch {
+      /* unreadable .env — ignore */
+    }
+  }
 
   if (isFile(join(root, 'CLAUDE.md'))) {
     out.claudeMdPath = './CLAUDE.md'

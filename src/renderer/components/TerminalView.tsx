@@ -54,6 +54,20 @@ export function TerminalView({ terminalId, active }: Props): JSX.Element {
 
     let disposed = false
 
+    // Size the terminal to its container BEFORE replaying. Writing the scrollback
+    // at xterm's default 80 cols and only resizing afterwards reflows the replayed
+    // bytes at the wrong width — for a full-screen TUI (e.g. claude) that shreds the
+    // screen. Fit first → replay lands at the right width → the pty resize below
+    // makes claude repaint cleanly on SIGWINCH.
+    if (host.clientWidth >= 2 && host.clientHeight >= 2) {
+      try {
+        fit.fit()
+        window.cockpit.resizeTerminal(terminalId, term.cols, term.rows)
+      } catch {
+        /* layout not ready — the ResizeObserver below will fit shortly */
+      }
+    }
+
     // Replay buffered scrollback captured in main while we weren't mounted.
     window.cockpit.getTerminalBuffer(terminalId).then((buf) => {
       if (!disposed && buf) term.write(buf)

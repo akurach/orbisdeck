@@ -42,6 +42,7 @@ export function AddProjectModal({ onCancel, onCreate }: Props): JSX.Element {
       if (detected.buildCommand) settings.buildCommand = detected.buildCommand
       if (detected.docsPath) settings.docsPath = detected.docsPath
       if (detected.claudeMdPath) settings.claudeMdPath = detected.claudeMdPath
+      if (detected.env) settings.env = detected.env
     }
     onCreate(name.trim(), settings)
   }
