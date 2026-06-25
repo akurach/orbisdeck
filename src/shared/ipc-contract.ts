@@ -11,6 +11,7 @@ import type {
   DirEntry,
   FileContent,
   GitSummary,
+  GlobalClaudeConfig,
   Project,
   ProjectId,
   ProjectSettings,
@@ -54,6 +55,12 @@ export interface CockpitApi {
   watchProject(projectId: ProjectId): Promise<void>
   unwatchProject(projectId: ProjectId): Promise<void>
 
+  // --- global Claude config (M4), all read-only ---
+  /** Snapshot of ~/.claude: settings, permissions, hooks, MCP servers, commands, CLAUDE.md. */
+  getGlobalClaude(): Promise<GlobalClaudeConfig>
+  /** Read one file under ~/.claude (sandboxed), e.g. a command's markdown. */
+  readClaudeFile(relPath: string): Promise<FileContent>
+
   // --- event subscriptions: return an unsubscribe fn ---
   onTerminalData(handler: (e: TerminalDataEvent) => void): () => void
   onTerminalExit(handler: (e: TerminalExitEvent) => void): () => void
@@ -80,7 +87,9 @@ export const IpcChannels = {
   listDir: 'cockpit:listDir',
   readFile: 'cockpit:readFile',
   watchProject: 'cockpit:watchProject',
-  unwatchProject: 'cockpit:unwatchProject'
+  unwatchProject: 'cockpit:unwatchProject',
+  getGlobalClaude: 'cockpit:getGlobalClaude',
+  readClaudeFile: 'cockpit:readClaudeFile'
 } as const
 
 /** Event channel names — main → renderer (push). */

@@ -29,6 +29,9 @@ const api: CockpitApi = {
   watchProject: (projectId) => ipcRenderer.invoke(IpcChannels.watchProject, projectId),
   unwatchProject: (projectId) => ipcRenderer.invoke(IpcChannels.unwatchProject, projectId),
 
+  getGlobalClaude: () => ipcRenderer.invoke(IpcChannels.getGlobalClaude),
+  readClaudeFile: (relPath) => ipcRenderer.invoke(IpcChannels.readClaudeFile, relPath),
+
   onTerminalData: (handler) => {
     const listener = (_e: unknown, payload: TerminalDataEvent): void => handler(payload)
     ipcRenderer.on(IpcEvents.terminalData, listener)

@@ -722,3 +722,259 @@ body {
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* --- M4: global Claude config --- */
+.global-claude-btn {
+  -webkit-app-region: no-drag;
+  font-size: 12px;
+}
+
+.claude-modal {
+  width: 880px;
+  max-width: 92vw;
+  height: 80vh;
+  padding: 0;
+  gap: 0;
+}
+
+.claude-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.claude-modal-head h2 {
+  font-size: 14px;
+}
+
+.claude-dir {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  user-select: text;
+}
+
+.claude-modal-head .btn {
+  margin-left: auto;
+}
+
+.claude-modal-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.claude-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 150px;
+  flex: none;
+  padding: 12px 8px;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.claude-count {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.claude-section-body {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 14px 18px;
+  user-select: text;
+}
+
+.claude-path {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  margin: 4px 0 8px;
+  user-select: text;
+  word-break: break-all;
+}
+
+.claude-code {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  background: var(--bg) !important;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+  user-select: text;
+}
+
+.claude-code code {
+  background: transparent;
+  font-family: var(--mono);
+}
+
+/* permissions */
+.claude-perms {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.perm-allow {
+  color: var(--green);
+}
+.perm-ask {
+  color: var(--yellow);
+}
+.perm-deny {
+  color: var(--red);
+}
+
+.claude-rule {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 3px 0;
+  border-top: 1px solid var(--border);
+  user-select: text;
+  word-break: break-all;
+}
+
+/* hooks */
+.claude-hooks,
+.claude-mcp,
+.claude-commands {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.claude-hook {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.claude-hook-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.claude-event {
+  font-weight: 600;
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.claude-matcher {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg-elev-2);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.claude-hook-cmd {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: text;
+}
+
+/* mcp */
+.claude-mcp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+
+.claude-mcp-name {
+  font-weight: 600;
+  font-size: 12.5px;
+  flex: none;
+}
+
+.claude-kind {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 0 5px;
+}
+
+.claude-mcp-detail {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.claude-source {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  flex: none;
+}
+
+/* commands */
+.claude-command {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 0;
+  border-top: 1px solid var(--border);
+  cursor: default;
+}
+
+.claude-command:hover {
+  background: var(--bg-elev-2);
+}
+
+.claude-cmd-name {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--accent);
+}
+
+.claude-cmd-desc {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* per-project claude panel */
+.claude-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.claude-global-btn {
+  align-self: flex-start;
+}
+
+.claude-panel .claude-code {
+  max-height: none;
+}

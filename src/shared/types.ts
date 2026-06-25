@@ -119,3 +119,63 @@ export interface DiffResult {
   truncated: boolean
   binary: boolean
 }
+
+// --- M4: Claude-native config (read-only) ---
+
+/** A configured MCP server, flattened across whatever file declared it. */
+export interface ClaudeMcpServer {
+  name: string
+  /** "stdio" | "sse" | "http" | "" (inferred) */
+  kind: string
+  /** command (stdio) or url (sse/http) — the human-meaningful detail */
+  detail: string
+  /** which file declared it, e.g. "settings.json" or "~/.claude.json" */
+  source: string
+}
+
+/** One hook binding: an event + its matcher + the commands it fires. */
+export interface ClaudeHook {
+  /** event name, e.g. "PreToolUse", "SessionStart", "Stop" */
+  event: string
+  /** matcher pattern, '' when the event takes none */
+  matcher: string
+  /** the shell commands run, in order */
+  commands: string[]
+}
+
+/** A custom slash command discovered under ~/.claude/commands. */
+export interface ClaudeCommand {
+  /** invocation name, e.g. "all" for commands/all.md */
+  name: string
+  /** path relative to ~/.claude, forward slashes */
+  path: string
+  /** first sentence / frontmatter description, best-effort, '' if none */
+  description: string
+}
+
+export interface ClaudePermissions {
+  allow: string[]
+  deny: string[]
+  ask: string[]
+}
+
+/** Read-only snapshot of the global Claude install (~/.claude). */
+export interface GlobalClaudeConfig {
+  /** absolute ~/.claude path */
+  claudeDir: string
+  /** false if ~/.claude doesn't exist */
+  exists: boolean
+  /** pretty-printed settings.json, '' if absent */
+  settingsText: string
+  settingsPath: string
+  /** pretty-printed settings.local.json, '' if absent */
+  localSettingsText: string
+  localSettingsPath: string
+  /** global CLAUDE.md (capped), '' if absent */
+  claudeMdText: string
+  claudeMdPath: string
+  permissions: ClaudePermissions
+  hooks: ClaudeHook[]
+  mcpServers: ClaudeMcpServer[]
+  commands: ClaudeCommand[]
+}

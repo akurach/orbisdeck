@@ -17,10 +17,11 @@ package, and resize cleanly?** Everything else is "just more panels."
 
 ## Milestones
 
-> **Status: M0 + M1 + M2 + M3 SHIPPED.** Build/typecheck/lint green; node-pty proven
+> **Status: M0 + M1 + M2 + M3 + M4 SHIPPED.** Build/typecheck/lint green; node-pty proven
 > under Electron's ABI; IPC→pty→data round-trip passes (`scripts/e2e.mjs` → E2E_OK);
-> git summary + file tree + viewer + diff verified live (`scripts/e2e-m3.mjs` → M3_OK).
-> Next: M4 (global Claude config viewer) — gated on daily use.
+> git summary + file tree + viewer + diff verified live (`scripts/e2e-m3.mjs` → M3_OK);
+> global Claude config viewer + per-project CLAUDE.md verified live (`scripts/e2e-m4.mjs`
+> → M4_OK). Next: M5 (Agents) — ONLY if a real signal source exists.
 
 ### M0 — Spike (3–5 days) · GO/NO-GO GATE · ✅ PASSED
 The load-bearing risk, isolated. Build *packaged*, not just `dev`.
@@ -59,10 +60,12 @@ The load-bearing risk, isolated. Build *packaged*, not just `dev`.
 - Diff view (diff2html), size-capped — refuse to render bodies over N lines, offer
   "open in editor" instead. Handle binary files.
 
-### M4 — Claude-native differentiation
-- Global Claude config viewer: `~/.claude/settings.json`, MCP, hooks, permissions,
-  custom commands — read-only.
-- Per-project CLAUDE.md surfacing.
+### M4 — Claude-native differentiation · ✅ DONE
+- Global Claude config viewer: `~/.claude/settings.json` (+ `settings.local.json`), MCP,
+  hooks, permissions, custom commands, global CLAUDE.md — read-only. Opened from the
+  top-right "Global Claude" button; `readClaudeFile` sandboxed to `~/.claude`.
+- Per-project CLAUDE.md surfacing — right-panel "Claude" tab, read via the project's
+  `claudeMdPath` settings profile through the existing sandboxed `readFile` seam.
 - *This is what makes it a Claude Code cockpit, not just a terminal multiplexer.*
 
 ### M5 — Agents (ONLY if a real signal source exists)

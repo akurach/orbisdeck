@@ -5,10 +5,12 @@ import { TerminalPanel } from './components/TerminalPanel'
 import { RightPanel } from './components/RightPanel'
 import { BottomPanel } from './components/BottomPanel'
 import { AddProjectModal } from './components/AddProjectModal'
+import { GlobalClaudeModal } from './components/GlobalClaudeModal'
 
 export function App(): JSX.Element {
   const cockpit = useCockpit()
   const [adding, setAdding] = useState(false)
+  const [globalClaude, setGlobalClaude] = useState(false)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
 
   const activeId = cockpit.activeProject?.id ?? null
@@ -41,7 +43,9 @@ export function App(): JSX.Element {
           onAdd={() => setAdding(true)}
         />
         <div className="topbar-right">
-          <span className="muted">Global Claude</span>
+          <button className="btn global-claude-btn" onClick={() => setGlobalClaude(true)}>
+            Global Claude
+          </button>
         </div>
       </header>
 
@@ -55,6 +59,7 @@ export function App(): JSX.Element {
               onSelectFile={setSelectedFile}
               onSave={(patch) => cockpit.updateProject(activeProject.id, patch)}
               onRemove={() => cockpit.removeProject(activeProject.id)}
+              onOpenGlobalClaude={() => setGlobalClaude(true)}
             />
           </main>
           <BottomPanel projectId={activeProject.id} selectedPath={selectedFile} />
@@ -79,6 +84,8 @@ export function App(): JSX.Element {
           }}
         />
       )}
+
+      {globalClaude && <GlobalClaudeModal onClose={() => setGlobalClaude(false)} />}
     </div>
   )
 }

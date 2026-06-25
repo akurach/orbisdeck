@@ -3,6 +3,7 @@ import type { Project, ProjectSettings } from '../../shared/types'
 import { SettingsPanel } from './SettingsPanel'
 import { FileTree } from './FileTree'
 import { GitPanel } from './GitPanel'
+import { ClaudePanel } from './ClaudePanel'
 
 interface Props {
   project: Project
@@ -10,13 +11,15 @@ interface Props {
   onSelectFile: (path: string) => void
   onSave: (patch: { name?: string; settings?: Partial<ProjectSettings> }) => void
   onRemove: () => void
+  onOpenGlobalClaude: () => void
 }
 
-type Tab = 'files' | 'git' | 'agents' | 'settings'
+type Tab = 'files' | 'git' | 'claude' | 'agents' | 'settings'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'files', label: 'Файлы' },
   { key: 'git', label: 'Git' },
+  { key: 'claude', label: 'Claude' },
   { key: 'agents', label: 'Агенты' },
   { key: 'settings', label: 'Настройки' }
 ]
@@ -36,7 +39,8 @@ export function RightPanel({
   selectedPath,
   onSelectFile,
   onSave,
-  onRemove
+  onRemove,
+  onOpenGlobalClaude
 }: Props): JSX.Element {
   const [tab, setTab] = useState<Tab>('settings')
 
@@ -65,6 +69,9 @@ export function RightPanel({
           />
         )}
         {tab === 'git' && <GitPanel projectId={project.id} />}
+        {tab === 'claude' && (
+          <ClaudePanel project={project} onOpenGlobal={onOpenGlobalClaude} />
+        )}
         {tab === 'agents' && (
           <Deferred
             milestone="M5"

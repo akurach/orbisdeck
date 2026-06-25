@@ -8,6 +8,7 @@ import { Store } from './store'
 import { TerminalManager } from './terminals'
 import { GitService } from './git'
 import { FileService } from './files'
+import { ClaudeService } from './claude'
 
 export interface Services {
   terminals: TerminalManager
@@ -27,6 +28,7 @@ export function registerIpc(store: Store): Services {
   )
   const git = new GitService()
   const files = new FileService()
+  const claude = new ClaudeService()
 
   const projectPath = (id: ProjectId): string => store.getProject(id)?.settings.path ?? ''
 
@@ -97,6 +99,10 @@ export function registerIpc(store: Store): Services {
     files.watch(id, projectPath(id), () => broadcast(IpcEvents.filesChanged, { projectId: id }))
   })
   ipcMain.handle(IpcChannels.unwatchProject, (_e, id: ProjectId) => files.unwatch(id))
+
+  // --- global Claude config (M4), read-only ---
+  ipcMain.handle(IpcChannels.getGlobalClaude, () => claude.global())
+  ipcMain.handle(IpcChannels.readClaudeFile, (_e, relPath: string) => claude.readFile(relPath))
 
   return { terminals, files }
 }
