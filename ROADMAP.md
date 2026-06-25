@@ -165,31 +165,28 @@ Requests from real use; ordered roughly by value/effort.
 
 ---
 
-### M7 — Tauri-native + polish (make it shippable)
+### M7 — Tauri-native + polish (make it shippable) — ✅ shipped
 
-Full Tauri backend is ported (branch `spike/tauri`). M7 makes it the product.
+Full Tauri backend was ported; M7 made it the product. All eight items landed:
 
-- **Make Tauri the only app; delete Electron.** Switch `dev`/`build`/`dist` to Tauri; remove
-  `electron`, `electron-vite`, `electron-builder`, `src/main/`, `src/preload/`, native rebuild
-  scripts and electron e2e. Move renderer tooling to plain `vite`. Keep `shared/` (the seam
-  contract + types) and `src/renderer/`.
-- **Repo hygiene — root is a mess.** Move branding (`orbisdeck_logo.png`, `orbisdeck_banner.png`)
-  into `assets/`/`branding/`; keep README banner links working. Ensure `*.tsbuildinfo` is
-  gitignored and untracked. General tidy of root.
-- **Package for easy launch.** `cargo tauri build` → `.app`/`.dmg`; proper icon set, app
-  metadata, a one-command run.
-- **i18n RU + EN.** Today strings are mixed. Add a real i18n layer (dictionary + `t()`), a
-  language toggle in settings, consistent coverage. Default by system locale.
-- **About OrbisDeck.** macOS About shows the wrong name casing and a *folder* glyph instead of
-  the icon. Fix `productName` to "OrbisDeck" and wire the real app icon into the About panel.
-- **In-app settings — accent color.** Not light theme yet: let the user change the accent
-  (active-tab blue) — a color picker / preset swatches, persisted, applied via a CSS variable.
-- **Global Claude settings = a real generated form.** Replace the editable JSON tree with a
-  classic settings form: typed controls per known key (e.g. `model` → dropdown of available
-  models, booleans → toggles, numbers → steppers), labels + help; unknown keys fall back to
-  raw. Write-back already exists.
-- **Terminal encoding/emoji.** The pty statusline shows `??` for emoji/glyphs — xterm font
-  lacks them. Add an emoji-capable font fallback (and verify UTF-8 end-to-end).
+- ✅ **Make Tauri the only app; delete Electron.** `dev`/`build`/`dist` run Tauri; Electron,
+  electron-vite/builder, `src/main/`, `src/preload/` and native rebuild scripts removed.
+  Renderer tooling is plain `vite`; `shared/` (seam contract) + `src/renderer/` kept.
+- ✅ **Repo hygiene.** Branding lives in `assets/` (README banner intact); `*.tsbuildinfo`
+  gitignored + untracked; root tidied.
+- ✅ **Package for easy launch.** `npm run build` (`tauri build`) → `.app` + `.dmg`; full icon
+  set regenerated from the square mark via `tauri icon`; bundle category + descriptions set.
+- ✅ **i18n RU + EN.** `src/renderer/i18n` — `LocaleProvider` + `useT()` + flat ru/en tables
+  (180 keys, lockstep); language toggle in App Settings; default from system locale. All 18
+  renderer components swept — no hardcoded Cyrillic left.
+- ✅ **About OrbisDeck.** `productName` "OrbisDeck"; real multi-res `.icns` (fixes the About
+  folder glyph); About block (name/version/tagline) in the App Settings modal.
+- ✅ **In-app settings — accent color.** App Settings modal: preset swatches + custom picker,
+  persisted in localStorage, applied via the `--accent` CSS variable before first paint.
+- ✅ **Global Claude settings = a real generated form.** `ClaudeSettingsForm` — typed controls
+  per known key (model dropdown, toggles, steppers, text); unknown keys → raw JSON tree; Raw
+  mode shows the verbatim file. Sandboxed write-back unchanged.
+- ✅ **Terminal encoding/emoji.** Emoji-capable font fallback added; UTF-8 verified end-to-end.
 
 ---
 
