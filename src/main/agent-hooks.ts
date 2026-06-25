@@ -145,6 +145,7 @@ export class AgentHooksService {
     } catch {
       return []
     }
+    const cutoff = Date.now() - 6 * 60 * 60 * 1000 // ignore events older than 6h
     const open: AgentInfo[] = []
     const done: AgentInfo[] = []
     let seq = 0
@@ -156,19 +157,23 @@ export class AgentHooksService {
       } catch {
         continue
       }
-      if (String(e.cwd ?? '') !== projectPath) continue
+      // Match the project and anything under it (agents often run in a subdir).
+      const cwd = String(e.cwd ?? '')
+      if (cwd !== projectPath && !cwd.startsWith(projectPath + '/')) continue
       const ts = Number(e.ts) || 0
+      if (ts && ts < cutoff) continue
       if (e.event === 'start') {
         open.push({
           id: `ev-${ts}-${seq++}`,
           type: String(e.type || 'agent'),
           description: String(e.description || ''),
           status: 'running',
-          startedAt: ts
+          startedAt: ts,
+          endedAt: 0
         })
       } else if (e.event === 'stop') {
         const a = open.shift() // close the oldest open agent for this project
-        if (a) done.push({ ...a, status: 'done' })
+        if (a) done.push({ ...a, status: 'done', endedAt: ts }) // freeze finish time
       }
     }
     return [...open, ...done.reverse()]

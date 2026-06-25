@@ -5,13 +5,20 @@ interface Props {
   projectId: ProjectId
 }
 
-function elapsed(ms: number): string {
-  if (!ms) return ''
-  const s = Math.max(0, Math.floor((Date.now() - ms) / 1000))
+function fmtDur(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000))
   if (s < 60) return `${s}с`
   const m = Math.floor(s / 60)
   if (m < 60) return `${m}м ${s % 60}с`
   return `${Math.floor(m / 60)}ч ${m % 60}м`
+}
+
+/** Running → ticking elapsed; done → frozen duration (end − start). */
+function agentTime(a: AgentInfo): string {
+  if (!a.startedAt) return ''
+  if (a.status === 'running') return fmtDur(Date.now() - a.startedAt)
+  if (a.endedAt > a.startedAt) return fmtDur(a.endedAt - a.startedAt)
+  return ''
 }
 
 // Two honest, structured sources:
@@ -78,7 +85,7 @@ export function AgentsPanel({ projectId }: Props): JSX.Element {
               </span>
             </div>
             {a.description && <div className="agent-cmd">{a.description}</div>}
-            {a.startedAt > 0 && <div className="agent-meta">{elapsed(a.startedAt)}</div>}
+            {agentTime(a) && <div className="agent-meta">{agentTime(a)}</div>}
           </div>
         ))
       )}
@@ -99,7 +106,7 @@ export function AgentsPanel({ projectId }: Props): JSX.Element {
             <div className="agent-cmd">{t.command}</div>
             <div className="agent-meta">
               <span>PID {t.pid || '—'}</span>
-              <span>{elapsed(t.startedAt)}</span>
+              <span>{t.startedAt ? fmtDur(Date.now() - t.startedAt) : ''}</span>
             </div>
           </div>
         ))

@@ -62,6 +62,9 @@ export interface AgentInfo {
   status: 'running' | 'done'
   /** epoch ms from the transcript line timestamp, 0 if unknown */
   startedAt: number
+  /** epoch ms when the agent finished, 0 if still running / unknown. Frozen so the
+   *  UI shows a fixed duration for done agents instead of a ticking clock. */
+  endedAt: number
 }
 
 export interface TerminalInfo {

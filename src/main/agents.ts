@@ -94,7 +94,8 @@ export class AgentsService {
               type: String(input.subagent_type ?? 'agent'),
               description: String(input.description ?? ''),
               status: 'running',
-              startedAt: Number.isFinite(ts) ? ts : 0
+              startedAt: Number.isFinite(ts) ? ts : 0,
+              endedAt: 0
             })
           } else if (block.type === 'tool_result') {
             const refId = String(block.tool_use_id ?? '')
