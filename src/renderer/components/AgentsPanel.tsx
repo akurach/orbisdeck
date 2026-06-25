@@ -78,10 +78,12 @@ export function AgentsPanel({ projectId }: Props): JSX.Element {
         agents.map((a) => (
           <div key={a.id} className="agent-card">
             <div className="agent-row">
-              <span className={`dot ${a.status === 'running' ? 'running' : 'finished'}`} />
+              <span
+                className={`dot ${a.status === 'running' ? 'running' : a.status === 'interrupted' ? 'waiting' : 'finished'}`}
+              />
               <span className="agent-title">{a.type}</span>
-              <span className={`agent-status ${a.status === 'running' ? 'running' : 'finished'}`}>
-                {a.status === 'running' ? 'Running' : 'Done'}
+              <span className={`agent-status ${a.status}`}>
+                {a.status === 'running' ? 'Running' : a.status === 'interrupted' ? 'Оборван' : 'Done'}
               </span>
             </div>
             {a.description && <div className="agent-cmd">{a.description}</div>}

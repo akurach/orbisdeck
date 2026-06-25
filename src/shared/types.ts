@@ -58,8 +58,9 @@ export interface AgentInfo {
   type: string
   /** the task description */
   description: string
-  /** 'running' = tool_use with no tool_result yet; 'done' = result seen */
-  status: 'running' | 'done'
+  /** 'running' = in flight; 'done' = finished; 'interrupted' = was running but its
+   *  Claude session is no longer alive (stop event never arrived) */
+  status: 'running' | 'done' | 'interrupted'
   /** epoch ms from the transcript line timestamp, 0 if unknown */
   startedAt: number
   /** epoch ms when the agent finished, 0 if still running / unknown. Frozen so the

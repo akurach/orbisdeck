@@ -610,6 +610,9 @@ body {
 .agent-status.finished {
   color: var(--text-faint);
 }
+.agent-status.interrupted {
+  color: var(--yellow);
+}
 .agent-cmd {
   margin-top: 5px;
   font-family: var(--mono);

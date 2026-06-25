@@ -11,9 +11,44 @@
 // with a one-shot backup of settings.json.
 
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, unlinkSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { AgentInfo } from '../shared/types'
+
+// Cache of live `claude` process working dirs (cwds), refreshed at most every 3s.
+let liveCache: { ts: number; cwds: string[] } = { ts: 0, cwds: [] }
+
+function liveClaudeCwds(): string[] {
+  const now = Date.now()
+  if (now - liveCache.ts < 3000) return liveCache.cwds
+  const cwds: string[] = []
+  try {
+    const pids = execFileSync('pgrep', ['-x', 'claude'], { encoding: 'utf8' })
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    for (const pid of pids) {
+      try {
+        const out = execFileSync('lsof', ['-a', '-p', pid, '-d', 'cwd', '-Fn'], {
+          encoding: 'utf8'
+        })
+        const line = out.split('\n').find((l) => l.startsWith('n'))
+        if (line) cwds.push(line.slice(1))
+      } catch {
+        /* pid gone */
+      }
+    }
+  } catch {
+    /* pgrep: no matches → no live claude */
+  }
+  liveCache = { ts: now, cwds }
+  return cwds
+}
+
+function projectHasLiveClaude(projectPath: string): boolean {
+  return liveClaudeCwds().some((c) => c === projectPath || c.startsWith(projectPath + '/'))
+}
 
 const CLAUDE_DIR = join(homedir(), '.claude')
 const OD_DIR = join(CLAUDE_DIR, 'orbisdeck')
@@ -218,6 +253,10 @@ export class AgentHooksService {
         if (a) done.push({ ...a, status: 'done', endedAt: ts }) // freeze finish time
       }
     }
-    return [...open, ...done.reverse()]
+    // If no Claude is alive under this project, anything still "open" was interrupted
+    // (its session died before SubagentStop fired) — don't show it as Running forever.
+    const alive = projectHasLiveClaude(projectPath)
+    const running = alive ? open : open.map((a) => ({ ...a, status: 'interrupted' as const }))
+    return [...running, ...done.reverse()]
   }
 }
