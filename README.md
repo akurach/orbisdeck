@@ -26,20 +26,28 @@ Each project is independent: its own persistent terminal session(s), file watche
 context, and settings profile. Project switching is instant — sessions stay alive in the
 background.
 
-## Status
+## Features
 
-**M1 + M2 + M3 + M4 shipped.**
+- **Terminals** — multiple persistent terminal tabs per project (node-pty + xterm.js);
+  one-click Run / Tests / Build; optionally auto-launch `claude` on open; drag to reorder.
+- **Agents** — live view of Claude Code sub-agents (Task/Agent) with type, status and
+  duration, read from the session transcript and (opt-in) Claude hooks — not screen-scraping.
+- **Git** — current branch, changed/staged counts, recent commits and a size-capped diff
+  (simple-git), without being a git client.
+- **Files** — lazy, watched file tree with git badges and a read-only viewer for code,
+  images and rendered/raw Markdown.
+- **Docker** — per-project, compose-scoped: container status with per-service Up / Restart /
+  Stop and logs in a modal (orchestrates the `docker` CLI, not a Docker Desktop clone).
+- **Claude-native config** — browse and edit global `~/.claude` settings, permissions (with
+  plain-language explanations), hooks and MCP servers; per-project `CLAUDE.md` as collapsible
+  elements.
+- **Layout** — resizable, collapsible and swappable panels; sizes and arrangement persist
+  per project.
+- **Notes & notifications** — per-project notes; a desktop alert and tab badge when a
+  terminal is waiting for your input.
 
-| Milestone | Scope | State |
-|-----------|-------|-------|
-| **M1 — The Shell** | Electron + React + TS shell, project tabs, JSON state store | ✅ |
-| **M2 — Terminals** | Per-project multi-tab persistent terminals (node-pty + xterm), run/test/build spawn | ✅ |
-| **M3 — Glanceable context** | Git summary (simple-git), lazy file tree (chokidar) + read-only viewer, Preview/Diff panel | ✅ |
-| **M4 — Claude-native** | Read-only `~/.claude` config viewer + per-project CLAUDE.md tab | ✅ |
-| **M5 — Beyond the shell** | Resizable/dynamic panels, smarter project settings, richer file viewer, Docker management, CLAUDE.md as managed elements, agents | planned |
-
-See [`ROADMAP.md`](./ROADMAP.md) for the live plan, design direction, and the full M5 scope.
-[`IDEA.md`](./IDEA.md) is the product spec.
+Version history lives in [`CHANGELOG.md`](./CHANGELOG.md); the product spec is
+[`IDEA.md`](./IDEA.md) and the working plan is [`ROADMAP.md`](./ROADMAP.md).
 
 ## Stack
 
