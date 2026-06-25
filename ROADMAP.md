@@ -165,6 +165,34 @@ Requests from real use; ordered roughly by value/effort.
 
 ---
 
+### M7 — Tauri-native + polish (make it shippable)
+
+Full Tauri backend is ported (branch `spike/tauri`). M7 makes it the product.
+
+- **Make Tauri the only app; delete Electron.** Switch `dev`/`build`/`dist` to Tauri; remove
+  `electron`, `electron-vite`, `electron-builder`, `src/main/`, `src/preload/`, native rebuild
+  scripts and electron e2e. Move renderer tooling to plain `vite`. Keep `shared/` (the seam
+  contract + types) and `src/renderer/`.
+- **Repo hygiene — root is a mess.** Move branding (`orbisdeck_logo.png`, `orbisdeck_banner.png`)
+  into `assets/`/`branding/`; keep README banner links working. Ensure `*.tsbuildinfo` is
+  gitignored and untracked. General tidy of root.
+- **Package for easy launch.** `cargo tauri build` → `.app`/`.dmg`; proper icon set, app
+  metadata, a one-command run.
+- **i18n RU + EN.** Today strings are mixed. Add a real i18n layer (dictionary + `t()`), a
+  language toggle in settings, consistent coverage. Default by system locale.
+- **About OrbisDeck.** macOS About shows the wrong name casing and a *folder* glyph instead of
+  the icon. Fix `productName` to "OrbisDeck" and wire the real app icon into the About panel.
+- **In-app settings — accent color.** Not light theme yet: let the user change the accent
+  (active-tab blue) — a color picker / preset swatches, persisted, applied via a CSS variable.
+- **Global Claude settings = a real generated form.** Replace the editable JSON tree with a
+  classic settings form: typed controls per known key (e.g. `model` → dropdown of available
+  models, booleans → toggles, numbers → steppers), labels + help; unknown keys fall back to
+  raw. Write-back already exists.
+- **Terminal encoding/emoji.** The pty statusline shows `??` for emoji/glyphs — xterm font
+  lacks them. Add an emoji-capable font fallback (and verify UTF-8 end-to-end).
+
+---
+
 ## What we deliberately won't do
 
 - No read-only-only dashboard (dodges the core risk, ships a launcher).

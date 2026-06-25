@@ -1,6 +1,6 @@
 <div align="center">
 
-![OrbisDeck — командный центр проектов](./orbisdeck_banner.png)
+![OrbisDeck — командный центр проектов](./assets/orbisdeck_banner.png)
 
 # OrbisDeck
 

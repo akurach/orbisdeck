@@ -4,7 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.akurach.orbisdeck",
   "build": {
-    "frontendDist": "../out/renderer"
+    "beforeDevCommand": "npm run dev:web",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
   },
   "app": {
     "windows": [
