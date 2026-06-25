@@ -54,6 +54,14 @@ export function FileTree({ projectId, selectedPath, onSelectFile }: Props): JSX.
     return off
   }, [projectId, loadDir, refreshStatus])
 
+  // Poll git status while the tree is visible. The file watcher ignores .git, so
+  // commit / stage / checkout / stash change git state without a working-tree event —
+  // a light poll keeps the badges honest. (Cheap: a single git status call.)
+  useEffect(() => {
+    const id = setInterval(refreshStatus, 3000)
+    return () => clearInterval(id)
+  }, [refreshStatus])
+
   const toggle = (path: string): void => {
     setExpanded((prev) => {
       const next = new Set(prev)
