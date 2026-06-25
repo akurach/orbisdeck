@@ -17,9 +17,10 @@ package, and resize cleanly?** Everything else is "just more panels."
 
 ## Milestones
 
-> **Status: M0 + M1 + M2 SHIPPED.** Build/typecheck/lint green; node-pty proven under
-> Electron's ABI; full IPC→pty→data round-trip passes via `scripts/e2e.mjs` (E2E_OK).
-> Next: M3 (git summary + file tree) — gated on daily use.
+> **Status: M0 + M1 + M2 + M3 SHIPPED.** Build/typecheck/lint green; node-pty proven
+> under Electron's ABI; IPC→pty→data round-trip passes (`scripts/e2e.mjs` → E2E_OK);
+> git summary + file tree + viewer + diff verified live (`scripts/e2e-m3.mjs` → M3_OK).
+> Next: M4 (global Claude config viewer) — gated on daily use.
 
 ### M0 — Spike (3–5 days) · GO/NO-GO GATE · ✅ PASSED
 The load-bearing risk, isolated. Build *packaged*, not just `dev`.
@@ -50,7 +51,7 @@ The load-bearing risk, isolated. Build *packaged*, not just `dev`.
 - **DAILY-USE GATE:** opened ≥5 days straight as the actual way you run your 4 projects?
   **No → kill it, back to tmux.** Yes → proceed. No M3+ code until this passes.
 
-### M3 — Glanceable context (cheap, high-trust)
+### M3 — Glanceable context (cheap, high-trust) · ✅ DONE
 - Passive **git summary strip** (simple-git behind `isRepo()`): branch, changed/staged/
   unstaged counts, recent commits. Debounced poll, NOT live-watched.
 - File tree (chokidar, aggressive `ignored:` for `.git`/`node_modules`/`dist`) +

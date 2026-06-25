@@ -1,10 +1,9 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
-import { registerIpc } from './ipc'
+import { registerIpc, type Services } from './ipc'
 import { Store } from './store'
-import type { TerminalManager } from './terminals'
 
-let terminals: TerminalManager | null = null
+let services: Services | null = null
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -40,7 +39,7 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   const store = new Store()
-  terminals = registerIpc(store)
+  services = registerIpc(store)
 
   createWindow()
 
@@ -54,5 +53,6 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
-  terminals?.killAll()
+  services?.terminals.killAll()
+  services?.files.closeAll()
 })

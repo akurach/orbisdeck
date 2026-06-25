@@ -4,7 +4,7 @@
 
 import { contextBridge, ipcRenderer } from 'electron'
 import { IpcChannels, IpcEvents, type CockpitApi } from '../shared/ipc-contract'
-import type { TerminalDataEvent, TerminalExitEvent } from '../shared/types'
+import type { ProjectId, TerminalDataEvent, TerminalExitEvent } from '../shared/types'
 
 const api: CockpitApi = {
   pickDirectory: () => ipcRenderer.invoke(IpcChannels.pickDirectory),
@@ -22,6 +22,13 @@ const api: CockpitApi = {
   killTerminal: (id) => ipcRenderer.invoke(IpcChannels.killTerminal, id),
   getTerminalBuffer: (id) => ipcRenderer.invoke(IpcChannels.getTerminalBuffer, id),
 
+  getGitSummary: (projectId) => ipcRenderer.invoke(IpcChannels.getGitSummary, projectId),
+  getDiff: (projectId, relPath) => ipcRenderer.invoke(IpcChannels.getDiff, projectId, relPath),
+  listDir: (projectId, relPath) => ipcRenderer.invoke(IpcChannels.listDir, projectId, relPath),
+  readFile: (projectId, relPath) => ipcRenderer.invoke(IpcChannels.readFile, projectId, relPath),
+  watchProject: (projectId) => ipcRenderer.invoke(IpcChannels.watchProject, projectId),
+  unwatchProject: (projectId) => ipcRenderer.invoke(IpcChannels.unwatchProject, projectId),
+
   onTerminalData: (handler) => {
     const listener = (_e: unknown, payload: TerminalDataEvent): void => handler(payload)
     ipcRenderer.on(IpcEvents.terminalData, listener)
@@ -31,6 +38,11 @@ const api: CockpitApi = {
     const listener = (_e: unknown, payload: TerminalExitEvent): void => handler(payload)
     ipcRenderer.on(IpcEvents.terminalExit, listener)
     return () => ipcRenderer.removeListener(IpcEvents.terminalExit, listener)
+  },
+  onFilesChanged: (handler) => {
+    const listener = (_e: unknown, payload: { projectId: ProjectId }): void => handler(payload)
+    ipcRenderer.on(IpcEvents.filesChanged, listener)
+    return () => ipcRenderer.removeListener(IpcEvents.filesChanged, listener)
   }
 }
 

@@ -68,3 +68,54 @@ export interface AppState {
   projects: Project[]
   activeProjectId: ProjectId | null
 }
+
+// --- M3: git summary ---
+
+export type GitChangeKind = 'added' | 'modified' | 'deleted' | 'renamed' | 'untracked'
+
+export interface GitCommitSummary {
+  hash: string
+  message: string
+  /** Relative age string, e.g. "2h ago" — computed pass-through. */
+  date: string
+}
+
+export interface GitSummary {
+  isRepo: boolean
+  branch: string
+  /** total changed (staged + unstaged + untracked) */
+  changed: number
+  staged: number
+  unstaged: number
+  recent: GitCommitSummary[]
+  /** Map of repo-relative path -> change kind, for tree badges (from the same poll). */
+  fileStatus: Record<string, GitChangeKind>
+}
+
+// --- M3: file tree + viewer ---
+
+export interface DirEntry {
+  name: string
+  /** repo/project-relative path with forward slashes */
+  path: string
+  isDir: boolean
+}
+
+export interface FileContent {
+  path: string
+  content: string
+  /** language id for highlight.js, '' if unknown */
+  language: string
+  /** true if the file exceeded the read cap and content is partial */
+  truncated: boolean
+  /** true if detected binary (content not returned) */
+  binary: boolean
+}
+
+export interface DiffResult {
+  path: string
+  /** unified diff text, possibly truncated */
+  text: string
+  truncated: boolean
+  binary: boolean
+}

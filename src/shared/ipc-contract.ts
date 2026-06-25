@@ -7,6 +7,10 @@
 
 import type {
   AppState,
+  DiffResult,
+  DirEntry,
+  FileContent,
+  GitSummary,
   Project,
   ProjectId,
   ProjectSettings,
@@ -39,9 +43,22 @@ export interface CockpitApi {
   /** Replay buffered scrollback for a terminal (e.g. on tab activation). */
   getTerminalBuffer(id: TerminalId): Promise<string>
 
+  // --- git (M3) ---
+  getGitSummary(projectId: ProjectId): Promise<GitSummary>
+  getDiff(projectId: ProjectId, relPath?: string): Promise<DiffResult>
+
+  // --- files (M3) ---
+  listDir(projectId: ProjectId, relPath: string): Promise<DirEntry[]>
+  readFile(projectId: ProjectId, relPath: string): Promise<FileContent>
+  /** Start watching a project's tree; debounced change events arrive via onFilesChanged. */
+  watchProject(projectId: ProjectId): Promise<void>
+  unwatchProject(projectId: ProjectId): Promise<void>
+
   // --- event subscriptions: return an unsubscribe fn ---
   onTerminalData(handler: (e: TerminalDataEvent) => void): () => void
   onTerminalExit(handler: (e: TerminalExitEvent) => void): () => void
+  /** Fires (debounced) when a watched project's files change. */
+  onFilesChanged(handler: (e: { projectId: ProjectId }) => void): () => void
 }
 
 /** IPC channel names — invoke (req/resp). Kept here so main + preload share one source. */
@@ -57,13 +74,20 @@ export const IpcChannels = {
   writeTerminal: 'cockpit:writeTerminal',
   resizeTerminal: 'cockpit:resizeTerminal',
   killTerminal: 'cockpit:killTerminal',
-  getTerminalBuffer: 'cockpit:getTerminalBuffer'
+  getTerminalBuffer: 'cockpit:getTerminalBuffer',
+  getGitSummary: 'cockpit:getGitSummary',
+  getDiff: 'cockpit:getDiff',
+  listDir: 'cockpit:listDir',
+  readFile: 'cockpit:readFile',
+  watchProject: 'cockpit:watchProject',
+  unwatchProject: 'cockpit:unwatchProject'
 } as const
 
 /** Event channel names — main → renderer (push). */
 export const IpcEvents = {
   terminalData: 'cockpit:event:terminalData',
-  terminalExit: 'cockpit:event:terminalExit'
+  terminalExit: 'cockpit:event:terminalExit',
+  filesChanged: 'cockpit:event:filesChanged'
 } as const
 
 /** What preload exposes on `window`. */

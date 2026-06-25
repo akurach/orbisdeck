@@ -6,8 +6,15 @@ import { IpcChannels, IpcEvents } from '../shared/ipc-contract'
 import type { ProjectId, SpawnTerminalRequest, TerminalId } from '../shared/types'
 import { Store } from './store'
 import { TerminalManager } from './terminals'
+import { GitService } from './git'
+import { FileService } from './files'
 
-export function registerIpc(store: Store): TerminalManager {
+export interface Services {
+  terminals: TerminalManager
+  files: FileService
+}
+
+export function registerIpc(store: Store): Services {
   const broadcast = (channel: string, payload: unknown): void => {
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(channel, payload)
@@ -18,6 +25,10 @@ export function registerIpc(store: Store): TerminalManager {
     (id, data) => broadcast(IpcEvents.terminalData, { id, data }),
     (id, exitCode, signal) => broadcast(IpcEvents.terminalExit, { id, exitCode, signal })
   )
+  const git = new GitService()
+  const files = new FileService()
+
+  const projectPath = (id: ProjectId): string => store.getProject(id)?.settings.path ?? ''
 
   ipcMain.handle(IpcChannels.pickDirectory, async (e) => {
     const win = BrowserWindow.fromWebContents(e.sender) ?? undefined
@@ -39,6 +50,7 @@ export function registerIpc(store: Store): TerminalManager {
 
   ipcMain.handle(IpcChannels.removeProject, (_e, id: ProjectId) => {
     for (const t of terminals.list(id)) terminals.kill(t.id)
+    files.unwatch(id)
     store.removeProject(id)
   })
 
@@ -68,5 +80,23 @@ export function registerIpc(store: Store): TerminalManager {
 
   ipcMain.handle(IpcChannels.getTerminalBuffer, (_e, id: TerminalId) => terminals.getBuffer(id))
 
-  return terminals
+  // --- git (M3) ---
+  ipcMain.handle(IpcChannels.getGitSummary, (_e, id: ProjectId) => git.summary(projectPath(id)))
+  ipcMain.handle(IpcChannels.getDiff, (_e, id: ProjectId, relPath?: string) =>
+    git.diff(projectPath(id), relPath)
+  )
+
+  // --- files (M3) ---
+  ipcMain.handle(IpcChannels.listDir, (_e, id: ProjectId, relPath: string) =>
+    files.listDir(projectPath(id), relPath)
+  )
+  ipcMain.handle(IpcChannels.readFile, (_e, id: ProjectId, relPath: string) =>
+    files.readFile(projectPath(id), relPath)
+  )
+  ipcMain.handle(IpcChannels.watchProject, (_e, id: ProjectId) => {
+    files.watch(id, projectPath(id), () => broadcast(IpcEvents.filesChanged, { projectId: id }))
+  })
+  ipcMain.handle(IpcChannels.unwatchProject, (_e, id: ProjectId) => files.unwatch(id))
+
+  return { terminals, files }
 }

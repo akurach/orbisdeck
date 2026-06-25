@@ -1,9 +1,13 @@
 import { useState } from 'react'
 import type { Project, ProjectSettings } from '../../shared/types'
 import { SettingsPanel } from './SettingsPanel'
+import { FileTree } from './FileTree'
+import { GitPanel } from './GitPanel'
 
 interface Props {
   project: Project
+  selectedPath: string | null
+  onSelectFile: (path: string) => void
   onSave: (patch: { name?: string; settings?: Partial<ProjectSettings> }) => void
   onRemove: () => void
 }
@@ -17,8 +21,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'settings', label: 'Настройки' }
 ]
 
-// Files / Git / Agents are deferred (roadmap M3 / M5). Stubbed honestly rather than
-// faked, so the shell shows the intended layout without pretending data exists.
+// Agents is deferred (roadmap M5). Stubbed honestly rather than faked.
 function Deferred({ milestone, note }: { milestone: string; note: string }): JSX.Element {
   return (
     <div className="deferred">
@@ -28,7 +31,13 @@ function Deferred({ milestone, note }: { milestone: string; note: string }): JSX
   )
 }
 
-export function RightPanel({ project, onSave, onRemove }: Props): JSX.Element {
+export function RightPanel({
+  project,
+  selectedPath,
+  onSelectFile,
+  onSave,
+  onRemove
+}: Props): JSX.Element {
   const [tab, setTab] = useState<Tab>('settings')
 
   return (
@@ -49,11 +58,13 @@ export function RightPanel({ project, onSave, onRemove }: Props): JSX.Element {
           <SettingsPanel project={project} onSave={onSave} onRemove={onRemove} />
         )}
         {tab === 'files' && (
-          <Deferred milestone="M3" note="Дерево файлов и read-only просмотр — следующий этап." />
+          <FileTree
+            projectId={project.id}
+            selectedPath={selectedPath}
+            onSelectFile={onSelectFile}
+          />
         )}
-        {tab === 'git' && (
-          <Deferred milestone="M3" note="Git-сводка (ветка, изменения, коммиты) — следующий этап." />
-        )}
+        {tab === 'git' && <GitPanel projectId={project.id} />}
         {tab === 'agents' && (
           <Deferred
             milestone="M5"
