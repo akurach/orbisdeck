@@ -9,6 +9,7 @@ import type {
   AgentHooksStatus,
   AgentInfo,
   AppState,
+  ClaudePermissions,
   DetectedSettings,
   DiffResult,
   DirEntry,
@@ -94,12 +95,20 @@ export interface CockpitApi {
   getGlobalClaude(): Promise<GlobalClaudeConfig>
   /** Read one file under ~/.claude (sandboxed), e.g. a command's markdown. */
   readClaudeFile(relPath: string): Promise<FileContent>
+  /** Overwrite ~/.claude/settings.json from edited JSON text (validated, atomic, backup). */
+  writeClaudeSettings(text: string): Promise<{ ok: boolean; error: string }>
+  /** Replace the permissions block in settings.json, preserving everything else. */
+  setClaudePermissions(perms: ClaudePermissions): Promise<{ ok: boolean; error: string }>
 
   // --- event subscriptions: return an unsubscribe fn ---
   onTerminalData(handler: (e: TerminalDataEvent) => void): () => void
   onTerminalExit(handler: (e: TerminalExitEvent) => void): () => void
   /** Fires (debounced) when a watched project's files change. */
   onFilesChanged(handler: (e: { projectId: ProjectId }) => void): () => void
+  /** Fires when a terminal/Claude awaits input (from the Notification hook). */
+  onNotify(
+    handler: (e: { projectId: ProjectId | null; cwd: string; message: string }) => void
+  ): () => void
 }
 
 /** IPC channel names — invoke (req/resp). Kept here so main + preload share one source. */
@@ -135,14 +144,17 @@ export const IpcChannels = {
   dockerAction: 'cockpit:dockerAction',
   getDockerLogs: 'cockpit:getDockerLogs',
   getGlobalClaude: 'cockpit:getGlobalClaude',
-  readClaudeFile: 'cockpit:readClaudeFile'
+  readClaudeFile: 'cockpit:readClaudeFile',
+  writeClaudeSettings: 'cockpit:writeClaudeSettings',
+  setClaudePermissions: 'cockpit:setClaudePermissions'
 } as const
 
 /** Event channel names — main → renderer (push). */
 export const IpcEvents = {
   terminalData: 'cockpit:event:terminalData',
   terminalExit: 'cockpit:event:terminalExit',
-  filesChanged: 'cockpit:event:filesChanged'
+  filesChanged: 'cockpit:event:filesChanged',
+  notify: 'cockpit:event:notify'
 } as const
 
 /** What preload exposes on `window`. */

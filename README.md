@@ -8,6 +8,8 @@
 
 *A macOS desktop shell for running multiple Claude Code projects from a single window.*
 
+**English** · [Русский](./README.ru.md)
+
 </div>
 
 ---

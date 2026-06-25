@@ -46,6 +46,8 @@ const api: CockpitApi = {
 
   getGlobalClaude: () => ipcRenderer.invoke(IpcChannels.getGlobalClaude),
   readClaudeFile: (relPath) => ipcRenderer.invoke(IpcChannels.readClaudeFile, relPath),
+  writeClaudeSettings: (text) => ipcRenderer.invoke(IpcChannels.writeClaudeSettings, text),
+  setClaudePermissions: (perms) => ipcRenderer.invoke(IpcChannels.setClaudePermissions, perms),
 
   onTerminalData: (handler) => {
     const listener = (_e: unknown, payload: TerminalDataEvent): void => handler(payload)
@@ -61,6 +63,14 @@ const api: CockpitApi = {
     const listener = (_e: unknown, payload: { projectId: ProjectId }): void => handler(payload)
     ipcRenderer.on(IpcEvents.filesChanged, listener)
     return () => ipcRenderer.removeListener(IpcEvents.filesChanged, listener)
+  },
+  onNotify: (handler) => {
+    const listener = (
+      _e: unknown,
+      payload: { projectId: ProjectId | null; cwd: string; message: string }
+    ): void => handler(payload)
+    ipcRenderer.on(IpcEvents.notify, listener)
+    return () => ipcRenderer.removeListener(IpcEvents.notify, listener)
   }
 }
 

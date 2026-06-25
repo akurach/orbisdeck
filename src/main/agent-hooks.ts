@@ -20,6 +20,7 @@ const OD_DIR = join(CLAUDE_DIR, 'orbisdeck')
 const SETTINGS = join(CLAUDE_DIR, 'settings.json')
 const HOOK_PATH = join(OD_DIR, 'hook.mjs')
 const EVENTS = join(OD_DIR, 'agents.jsonl')
+const NOTIFY = join(OD_DIR, 'notify.jsonl')
 const HOOK_MARKER = 'orbisdeck/hook.mjs'
 const HOOK_CMD = (mode: string): string => `node "$HOME/.claude/orbisdeck/hook.mjs" ${mode}`
 
@@ -27,7 +28,7 @@ const HOOK_SCRIPT = `import { appendFileSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-const mode = process.argv[2] // 'start' | 'stop'
+const mode = process.argv[2] // 'start' | 'stop' | 'notify'
 let raw = ''
 process.stdin.on('data', (d) => (raw += d))
 process.stdin.on('end', () => {
@@ -35,16 +36,27 @@ process.stdin.on('end', () => {
   try { p = JSON.parse(raw) } catch {}
   const dir = join(homedir(), '.claude', 'orbisdeck')
   try { mkdirSync(dir, { recursive: true }) } catch {}
-  const ti = p.tool_input || {}
-  const line = JSON.stringify({
-    event: mode,
-    ts: Date.now(),
-    cwd: p.cwd || '',
-    session: p.session_id || '',
-    type: ti.subagent_type || '',
-    description: ti.description || ''
-  }) + '\\n'
-  try { appendFileSync(join(dir, 'agents.jsonl'), line) } catch {}
+  if (mode === 'notify') {
+    // Notification hook: Claude needs the user (waiting for input / permission).
+    const line = JSON.stringify({
+      ts: Date.now(),
+      cwd: p.cwd || '',
+      session: p.session_id || '',
+      message: p.message || 'Claude ждёт ответа'
+    }) + '\\n'
+    try { appendFileSync(join(dir, 'notify.jsonl'), line) } catch {}
+  } else {
+    const ti = p.tool_input || {}
+    const line = JSON.stringify({
+      event: mode,
+      ts: Date.now(),
+      cwd: p.cwd || '',
+      session: p.session_id || '',
+      type: ti.subagent_type || '',
+      description: ti.description || ''
+    }) + '\\n'
+    try { appendFileSync(join(dir, 'agents.jsonl'), line) } catch {}
+  }
   process.stdout.write('{}') // empty = allow; never blocks the tool
 })
 `
@@ -99,6 +111,7 @@ export class AgentHooksService {
     s.hooks = s.hooks ?? {}
     s.hooks.PreToolUse = s.hooks.PreToolUse ?? []
     s.hooks.SubagentStop = s.hooks.SubagentStop ?? []
+    s.hooks.Notification = s.hooks.Notification ?? []
 
     if (!s.hooks.PreToolUse.some(entryIsOurs)) {
       s.hooks.PreToolUse.push({
@@ -111,6 +124,12 @@ export class AgentHooksService {
         hooks: [{ type: 'command', command: HOOK_CMD('stop') }]
       })
     }
+    // Notification hook → desktop alert + tab badge when a terminal awaits input.
+    if (!s.hooks.Notification.some(entryIsOurs)) {
+      s.hooks.Notification.push({
+        hooks: [{ type: 'command', command: HOOK_CMD('notify') }]
+      })
+    }
     writeSettingsAtomic(s)
     return { installed: true }
   }
@@ -118,7 +137,7 @@ export class AgentHooksService {
   uninstall(): AgentHooksStatus {
     const s = readSettings()
     if (s.hooks) {
-      for (const key of ['PreToolUse', 'SubagentStop'] as const) {
+      for (const key of ['PreToolUse', 'SubagentStop', 'Notification'] as const) {
         const arr = s.hooks[key]
         if (Array.isArray(arr)) {
           s.hooks[key] = arr.filter((e) => !entryIsOurs(e))
@@ -134,6 +153,29 @@ export class AgentHooksService {
       /* already gone */
     }
     return { installed: false }
+  }
+
+  /** Notification events (Claude awaiting input) newer than `since` (epoch ms). */
+  readNotificationsSince(since: number): { ts: number; cwd: string; message: string }[] {
+    if (!existsSync(NOTIFY)) return []
+    let text: string
+    try {
+      text = readFileSync(NOTIFY, 'utf8')
+    } catch {
+      return []
+    }
+    const out: { ts: number; cwd: string; message: string }[] = []
+    for (const line of text.split('\n')) {
+      if (!line.trim()) continue
+      try {
+        const e = JSON.parse(line)
+        const ts = Number(e.ts) || 0
+        if (ts > since) out.push({ ts, cwd: String(e.cwd ?? ''), message: String(e.message ?? '') })
+      } catch {
+        /* skip */
+      }
+    }
+    return out
   }
 
   /** Live agents for a project, paired from the hook event log (FIFO per cwd). */

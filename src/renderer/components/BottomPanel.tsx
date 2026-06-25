@@ -12,12 +12,11 @@ interface Props {
   onSwapVertical: () => void
 }
 
-type Tab = 'preview' | 'diff' | 'logs' | 'notes'
+type Tab = 'preview' | 'diff' | 'notes'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'preview', label: 'Preview' },
   { key: 'diff', label: 'Diff' },
-  { key: 'logs', label: 'Logs' },
   { key: 'notes', label: 'Заметки' }
 ]
 
@@ -57,7 +56,6 @@ export function BottomPanel({
       <div className="bottom-body">
         {tab === 'preview' && <FileViewer projectId={projectId} path={selectedPath} />}
         {tab === 'diff' && <DiffViewer projectId={projectId} path={selectedPath} />}
-        {tab === 'logs' && <div className="deferred">Логи появятся позже.</div>}
         {tab === 'notes' && <NotesPanel projectId={projectId} />}
       </div>
     </section>

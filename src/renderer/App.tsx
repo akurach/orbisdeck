@@ -18,6 +18,27 @@ export function App(): JSX.Element {
   const activeId = cockpit.activeProject?.id ?? null
   const layout = useLayout(activeId ?? '__none__')
   const [hooksOffer, setHooksOffer] = useState(false)
+  const [notifyBadges, setNotifyBadges] = useState<Set<string>>(new Set())
+
+  // Tab badge when a non-active project's Claude awaits input (Notification hook).
+  useEffect(() => {
+    return window.cockpit.onNotify((e) => {
+      if (e.projectId && e.projectId !== activeId) {
+        setNotifyBadges((prev) => new Set(prev).add(e.projectId as string))
+      }
+    })
+  }, [activeId])
+
+  // Clear a project's badge once it becomes active.
+  useEffect(() => {
+    if (!activeId) return
+    setNotifyBadges((prev) => {
+      if (!prev.has(activeId)) return prev
+      const next = new Set(prev)
+      next.delete(activeId)
+      return next
+    })
+  }, [activeId])
 
   // One-time offer to enable live-agents hooks (writes ~/.claude/settings.json).
   useEffect(() => {
@@ -109,6 +130,7 @@ export function App(): JSX.Element {
           onAdd={() => setAdding(true)}
           onClose={cockpit.removeProject}
           onReorder={cockpit.reorderProjects}
+          badges={notifyBadges}
         />
         <div className="topbar-right">
           <button className="btn global-claude-btn" onClick={() => setGlobalClaude(true)}>

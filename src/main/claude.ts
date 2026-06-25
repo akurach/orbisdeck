@@ -1,12 +1,11 @@
-// Read-only window onto the global Claude install (~/.claude). This is what makes
-// the cockpit Claude-native rather than a generic terminal multiplexer (roadmap M4):
-// it surfaces settings, permissions, hooks, MCP servers and custom commands the user
-// already has — never editing them, only reflecting them.
-//
-// Everything here is best-effort: a missing or malformed file degrades to an empty
-// section, never an exception across the IPC seam.
+// Window onto the global Claude install (~/.claude). This is what makes the cockpit
+// Claude-native rather than a generic terminal multiplexer (roadmap M4/M6): it surfaces
+// settings, permissions, hooks, MCP servers and custom commands the user already has.
+// Reads are best-effort (a missing/malformed file degrades to an empty section, never
+// throws across the seam). Writes (settings.json / permissions, M6) are guarded: JSON is
+// validated first, then written atomically with a one-shot backup.
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, relative, resolve, sep } from 'node:path'
 import type {
@@ -236,5 +235,64 @@ export class ClaudeService {
       result.content = buf.toString('utf8')
     }
     return result
+  }
+
+  private settingsFile(): string {
+    return join(this.claudeDir, 'settings.json')
+  }
+
+  private writeJsonAtomic(file: string, value: unknown): void {
+    mkdirSync(this.claudeDir, { recursive: true })
+    if (existsSync(file)) {
+      try {
+        writeFileSync(file + '.orbisdeck.bak', readFileSync(file))
+      } catch {
+        /* backup best-effort */
+      }
+    }
+    const tmp = file + '.tmp'
+    writeFileSync(tmp, JSON.stringify(value, null, 2))
+    renameSync(tmp, file)
+  }
+
+  /** Overwrite ~/.claude/settings.json from edited text. Validates JSON first. */
+  writeSettings(text: string): { ok: boolean; error: string } {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(text)
+    } catch (e) {
+      return { ok: false, error: 'Невалидный JSON: ' + (e as Error).message }
+    }
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { ok: false, error: 'Ожидался объект настроек' }
+    }
+    try {
+      this.writeJsonAtomic(this.settingsFile(), parsed)
+      return { ok: true, error: '' }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  }
+
+  /** Replace the `permissions` block in settings.json, preserving everything else. */
+  setPermissions(perms: ClaudePermissions): { ok: boolean; error: string } {
+    const file = this.settingsFile()
+    let settings: Record<string, unknown> = {}
+    try {
+      if (existsSync(file)) settings = JSON.parse(readFileSync(file, 'utf8'))
+    } catch (e) {
+      return { ok: false, error: 'settings.json не парсится: ' + (e as Error).message }
+    }
+    settings.permissions = {
+      allow: perms.allow,
+      ask: perms.ask,
+      deny: perms.deny
+    }
+    try {
+      this.writeJsonAtomic(file, settings)
+      return { ok: true, error: '' }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
   }
 }

@@ -1,15 +1,51 @@
 import { useState } from 'react'
 
-// Collapsible JSON viewer — turns a settings.json blob into a navigable tree
-// instead of one flat highlighted wall. Read-only.
+// Collapsible JSON viewer/editor — turns a settings.json blob into a navigable tree
+// of fields. In editable mode each scalar leaf becomes an input (text/number/checkbox)
+// and edits are reported by path so the parent can rebuild the object.
 
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json }
+type Path = (string | number)[]
 
 function isContainer(v: Json): v is Json[] | { [k: string]: Json } {
   return v !== null && typeof v === 'object'
 }
 
-function Leaf({ value }: { value: Json }): JSX.Element {
+function Leaf({
+  value,
+  path,
+  editable,
+  onEdit
+}: {
+  value: Json
+  path: Path
+  editable: boolean
+  onEdit?: (path: Path, value: Json) => void
+}): JSX.Element {
+  if (editable && onEdit && typeof value === 'boolean') {
+    return (
+      <input
+        type="checkbox"
+        className="json-edit-bool"
+        checked={value}
+        onChange={(e) => onEdit(path, e.target.checked)}
+      />
+    )
+  }
+  if (editable && onEdit && (typeof value === 'string' || typeof value === 'number')) {
+    const isNum = typeof value === 'number'
+    return (
+      <input
+        className={`json-edit ${isNum ? 'json-num' : 'json-str'}`}
+        value={String(value)}
+        size={Math.max(4, String(value).length)}
+        onChange={(e) => {
+          const v = e.target.value
+          onEdit(path, isNum && v.trim() !== '' && !isNaN(Number(v)) ? Number(v) : v)
+        }}
+      />
+    )
+  }
   const cls =
     typeof value === 'string'
       ? 'json-str'
@@ -22,14 +58,28 @@ function Leaf({ value }: { value: Json }): JSX.Element {
   return <span className={cls}>{text}</span>
 }
 
-function Node({ name, value, depth }: { name?: string; value: Json; depth: number }): JSX.Element {
+function Node({
+  name,
+  value,
+  depth,
+  path,
+  editable,
+  onEdit
+}: {
+  name?: string
+  value: Json
+  depth: number
+  path: Path
+  editable: boolean
+  onEdit?: (path: Path, value: Json) => void
+}): JSX.Element {
   const [open, setOpen] = useState(depth < 1)
 
   if (!isContainer(value)) {
     return (
       <div className="json-row" style={{ paddingLeft: depth * 14 }}>
         {name !== undefined && <span className="json-key">{name}: </span>}
-        <Leaf value={value} />
+        <Leaf value={value} path={path} editable={editable} onEdit={onEdit} />
       </div>
     )
   }
@@ -51,15 +101,46 @@ function Node({ name, value, depth }: { name?: string; value: Json; depth: numbe
         {!open && <span className="json-summary"> {summary}</span>}
       </div>
       {open &&
-        entries.map(([k, v]) => <Node key={k} name={k} value={v} depth={depth + 1} />)}
+        entries.map(([k, v]) => (
+          <Node
+            key={k}
+            name={k}
+            value={v}
+            depth={depth + 1}
+            path={[...path, Array.isArray(value) ? Number(k) : k]}
+            editable={editable}
+            onEdit={onEdit}
+          />
+        ))}
     </div>
   )
 }
 
-export function JsonTree({ json }: { json: Json }): JSX.Element {
+export function JsonTree({
+  json,
+  editable = false,
+  onEdit
+}: {
+  json: Json
+  editable?: boolean
+  onEdit?: (path: Path, value: Json) => void
+}): JSX.Element {
   return (
     <div className="json-tree">
-      <Node value={json} depth={0} />
+      <Node value={json} depth={0} path={[]} editable={editable} onEdit={onEdit} />
     </div>
   )
+}
+
+/** Immutably set a value at a path inside a JSON object/array. */
+export function setAtPath(root: Json, path: Path, value: Json): Json {
+  if (path.length === 0) return value
+  const [head, ...rest] = path
+  if (Array.isArray(root)) {
+    const copy = root.slice()
+    copy[head as number] = setAtPath(copy[head as number] ?? null, rest, value)
+    return copy
+  }
+  const obj = (root && typeof root === 'object' ? root : {}) as { [k: string]: Json }
+  return { ...obj, [head as string]: setAtPath(obj[head as string] ?? null, rest, value) }
 }

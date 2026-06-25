@@ -128,6 +128,14 @@ body {
   font-size: 12.5px;
 }
 
+.project-tab-badge {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+
 .project-tab-close {
   display: inline-flex;
   align-items: center;
@@ -497,6 +505,31 @@ body {
 .json-bool,
 .json-null {
   color: var(--magenta, #bc8cff);
+}
+.json-edit {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 1px 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-elev-2);
+  outline: none;
+}
+.json-edit:focus {
+  border-color: var(--accent);
+}
+.json-edit-bool {
+  vertical-align: middle;
+}
+.settings-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+  position: sticky;
+  bottom: 0;
+  padding-top: 8px;
+  background: linear-gradient(transparent, var(--bg-elev) 40%);
 }
 
 /* --- agents panel (cockpit-spawned processes) --- */
@@ -1464,12 +1497,71 @@ body {
 }
 
 .claude-rule {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--mono);
   font-size: 12px;
   padding: 3px 0;
   border-top: 1px solid var(--border);
   user-select: text;
   word-break: break-all;
+}
+.claude-rule-text {
+  flex: 1;
+}
+.claude-rule-x {
+  flex: none;
+  cursor: pointer;
+  color: var(--text-faint);
+  padding: 0 4px;
+}
+.claude-rule-x:hover {
+  color: var(--red);
+}
+
+.perms-explainer {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+.perms-explainer code,
+.perm-hint code {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+}
+.perm-hint {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin: 2px 0 6px;
+}
+.perm-add {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.perm-add input {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 3px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+}
+.perm-add input:focus {
+  border-color: var(--accent);
+}
+
+.hook-desc {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-faint);
+  margin: 2px 0 6px;
 }
 
 /* hooks */

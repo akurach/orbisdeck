@@ -3,7 +3,8 @@ import hljs from 'highlight.js/lib/common'
 import 'highlight.js/styles/github-dark.css'
 import type { FileContent, GlobalClaudeConfig } from '../../shared/types'
 import { ClaudeElements } from './ClaudeElements'
-import { JsonTree } from './JsonTree'
+import { JsonTree, setAtPath } from './JsonTree'
+import { PermissionsEditor } from './PermissionsEditor'
 
 interface Props {
   onClose: () => void
@@ -19,6 +20,20 @@ const SECTIONS: { key: Section; label: string }[] = [
   { key: 'commands', label: 'Команды' },
   { key: 'claudemd', label: 'CLAUDE.md' }
 ]
+
+// Plain-language description of each Claude Code hook event.
+const HOOK_EVENT_DESC: Record<string, string> = {
+  PreToolUse: 'Перед вызовом инструмента (можно разрешить/заблокировать). matcher — по имени инструмента.',
+  PostToolUse: 'После того как инструмент отработал.',
+  UserPromptSubmit: 'Когда ты отправляешь сообщение — до того как Claude его обработает.',
+  Notification: 'Когда Claude шлёт уведомление (ждёт ввода/разрешения).',
+  Stop: 'Когда Claude закончил ответ (ход завершён).',
+  SubagentStart: 'Когда запускается суб-агент (Task/Agent).',
+  SubagentStop: 'Когда суб-агент завершился.',
+  SessionStart: 'При старте сессии Claude.',
+  SessionEnd: 'При завершении сессии.',
+  PreCompact: 'Перед уплотнением контекста.'
+}
 
 function highlight(code: string, language: string): string {
   if (!code) return ''
@@ -41,9 +56,19 @@ function Code({ code, language }: { code: string; language: string }): JSX.Eleme
   )
 }
 
-// settings.json as a collapsible tree (default) or raw text. Falls back to text
-// if the JSON doesn't parse (e.g. with comments).
-function SettingsView({ text, view }: { text: string; view: 'tree' | 'text' }): JSX.Element {
+// settings.json as a collapsible tree of editable fields (default) or raw text.
+// Editing is allowed only for the main settings.json; edits write back atomically.
+function SettingsView({
+  text,
+  view,
+  editable,
+  onSaved
+}: {
+  text: string
+  view: 'tree' | 'text'
+  editable?: boolean
+  onSaved?: () => void
+}): JSX.Element {
   const parsed = useMemo(() => {
     if (!text) return undefined
     try {
@@ -53,9 +78,63 @@ function SettingsView({ text, view }: { text: string; view: 'tree' | 'text' }): 
     }
   }, [text])
 
+  const [draft, setDraft] = useState<unknown>(parsed)
+  const [dirty, setDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    setDraft(parsed)
+    setDirty(false)
+    setError('')
+  }, [parsed])
+
   if (!text) return <div className="viewer-empty">settings.json отсутствует</div>
-  if (view === 'tree' && parsed !== undefined) return <JsonTree json={parsed} />
-  return <Code code={text} language="json" />
+  if (view === 'text' || parsed === undefined) return <Code code={text} language="json" />
+
+  if (!editable) return <JsonTree json={parsed as never} />
+
+  const save = async (): Promise<void> => {
+    setSaving(true)
+    const res = await window.cockpit.writeClaudeSettings(JSON.stringify(draft, null, 2))
+    setSaving(false)
+    if (res.ok) {
+      setDirty(false)
+      onSaved?.()
+    } else {
+      setError(res.error)
+    }
+  }
+
+  return (
+    <div className="settings-edit">
+      <JsonTree
+        json={draft as never}
+        editable
+        onEdit={(path, value) => {
+          setDraft((d: unknown) => setAtPath(d as never, path, value))
+          setDirty(true)
+        }}
+      />
+      {error && <div className="docker-error">{error}</div>}
+      <div className="settings-edit-actions">
+        <button
+          className="btn"
+          disabled={!dirty || saving}
+          onClick={() => {
+            setDraft(parsed)
+            setDirty(false)
+            setError('')
+          }}
+        >
+          Сбросить
+        </button>
+        <button className="btn primary" disabled={!dirty || saving} onClick={save}>
+          {saving ? '…' : 'Сохранить'}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
@@ -168,7 +247,12 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
                     </div>
                   </div>
                   <div className="claude-path">{cfg.settingsPath}</div>
-                  <SettingsView text={cfg.settingsText} view={settingsView} />
+                  <SettingsView
+                    text={cfg.settingsText}
+                    view={settingsView}
+                    editable
+                    onSaved={() => window.cockpit.getGlobalClaude().then(setCfg)}
+                  />
                   {cfg.localSettingsText && (
                     <>
                       <div className="claude-path">{cfg.localSettingsPath}</div>
@@ -179,22 +263,10 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
               )}
 
               {section === 'permissions' && (
-                <div className="claude-perms">
-                  {(['allow', 'ask', 'deny'] as const).map((k) => (
-                    <div key={k} className="claude-perm-group">
-                      <div className={`git-section-label perm-${k}`}>{k}</div>
-                      {cfg.permissions[k].length === 0 ? (
-                        <div className="viewer-empty">—</div>
-                      ) : (
-                        cfg.permissions[k].map((rule, i) => (
-                          <div key={i} className="claude-rule">
-                            {rule}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <PermissionsEditor
+                  perms={cfg.permissions}
+                  onSaved={() => window.cockpit.getGlobalClaude().then(setCfg)}
+                />
               )}
 
               {section === 'hooks' &&
@@ -208,6 +280,9 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
                           <span className="claude-event">{h.event}</span>
                           {h.matcher && <span className="claude-matcher">{h.matcher}</span>}
                         </div>
+                        {HOOK_EVENT_DESC[h.event] && (
+                          <div className="hook-desc">{HOOK_EVENT_DESC[h.event]}</div>
+                        )}
                         {h.commands.map((c, j) => (
                           <code key={j} className="claude-hook-cmd">
                             {c}

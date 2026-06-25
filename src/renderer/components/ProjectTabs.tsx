@@ -9,6 +9,7 @@ interface Props {
   onAdd: () => void
   onClose: (id: ProjectId) => void
   onReorder: (ids: ProjectId[]) => void
+  badges: Set<string>
 }
 
 export function ProjectTabs({
@@ -17,7 +18,8 @@ export function ProjectTabs({
   onSelect,
   onAdd,
   onClose,
-  onReorder
+  onReorder,
+  badges
 }: Props): JSX.Element {
   const dragTab = useTabReorder((from, to) =>
     onReorder(moveItem(projects, from, to).map((p) => p.id))
@@ -35,6 +37,7 @@ export function ProjectTabs({
           onClick={() => onSelect(p.id)}
           {...dragTab(i)}
         >
+          {badges.has(p.id) && <span className="project-tab-badge" title="Ждёт ответа" />}
           <span className="project-tab-name">{p.name}</span>
           <span className="project-tab-close" title="Закрыть проект" onClick={(e) => close(e, p)}>
             ×

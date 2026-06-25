@@ -1,7 +1,7 @@
 // Wires the typed contract to Electron IPC. This is the Electron *implementation*
 // of CockpitApi. All node-pty / fs access funnels through here — nothing leaks past.
 
-import { BrowserWindow, dialog, ipcMain } from 'electron'
+import { BrowserWindow, Notification, dialog, ipcMain } from 'electron'
 import { join } from 'node:path'
 import { readFileSync, statSync } from 'node:fs'
 import { IpcChannels, IpcEvents } from '../shared/ipc-contract'
@@ -15,7 +15,7 @@ import { DockerService } from './docker'
 import { AgentsService } from './agents'
 import { AgentHooksService } from './agent-hooks'
 import { detectProjectSettings } from './detect'
-import type { DockerAction } from '../shared/types'
+import type { ClaudePermissions, DockerAction } from '../shared/types'
 
 export interface Services {
   terminals: TerminalManager
@@ -186,6 +186,29 @@ export function registerIpc(store: Store): Services {
   // --- global Claude config (M4), read-only ---
   ipcMain.handle(IpcChannels.getGlobalClaude, () => claude.global())
   ipcMain.handle(IpcChannels.readClaudeFile, (_e, relPath: string) => claude.readFile(relPath))
+  ipcMain.handle(IpcChannels.writeClaudeSettings, (_e, text: string) => claude.writeSettings(text))
+  ipcMain.handle(IpcChannels.setClaudePermissions, (_e, perms: ClaudePermissions) =>
+    claude.setPermissions(perms)
+  )
+
+  // Poll the Notification hook log; fire a native alert + tab badge for new ones.
+  // Seeded with "now" so pre-existing entries don't replay on launch.
+  let lastNotifyTs = Date.now()
+  setInterval(() => {
+    const fresh = agentHooks.readNotificationsSince(lastNotifyTs)
+    for (const n of fresh) {
+      lastNotifyTs = Math.max(lastNotifyTs, n.ts)
+      const proj = store
+        .getState()
+        .projects.find(
+          (p) => n.cwd === p.settings.path || n.cwd.startsWith(p.settings.path + '/')
+        )
+      if (Notification.isSupported()) {
+        new Notification({ title: `OrbisDeck · ${proj?.name ?? 'Claude'}`, body: n.message }).show()
+      }
+      broadcast(IpcEvents.notify, { projectId: proj?.id ?? null, cwd: n.cwd, message: n.message })
+    }
+  }, 1500)
 
   return { terminals, files }
 }
