@@ -38,7 +38,9 @@ export function TerminalView({ terminalId, active }: Props): JSX.Element {
     if (!host) return
 
     const term = new Terminal({
-      fontFamily: 'JetBrains Mono, SFMono-Regular, Menlo, monospace',
+      // Apple Color Emoji last so emoji/glyphs (e.g. claude's ⏳ statusline) render
+      // instead of "??" when the mono font lacks them.
+      fontFamily: "JetBrains Mono, SFMono-Regular, Menlo, monospace, 'Apple Color Emoji'",
       fontSize: 13,
       lineHeight: 1.2,
       cursorBlink: true,
