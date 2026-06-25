@@ -19,6 +19,10 @@ import type {
 
 /** Request/response surface. All async, all serializable. */
 export interface CockpitApi {
+  // --- dialogs ---
+  /** Open a native folder picker. Returns the chosen absolute path, or null if cancelled. */
+  pickDirectory(): Promise<string | null>
+
   // --- projects ---
   getState(): Promise<AppState>
   addProject(input: { name: string; settings: ProjectSettings }): Promise<Project>
@@ -42,6 +46,7 @@ export interface CockpitApi {
 
 /** IPC channel names — invoke (req/resp). Kept here so main + preload share one source. */
 export const IpcChannels = {
+  pickDirectory: 'cockpit:pickDirectory',
   getState: 'cockpit:getState',
   addProject: 'cockpit:addProject',
   updateProject: 'cockpit:updateProject',

@@ -32,6 +32,11 @@ export function SettingsPanel({ project, onSave, onRemove }: Props): JSX.Element
     setDirty(true)
   }
 
+  const pickFolder = async (): Promise<void> => {
+    const chosen = await window.cockpit.pickDirectory()
+    if (chosen) edit('path', chosen)
+  }
+
   const save = (): void => {
     onSave({ name, settings })
     setDirty(false)
@@ -49,17 +54,31 @@ export function SettingsPanel({ project, onSave, onRemove }: Props): JSX.Element
           }}
         />
       </div>
-      {FIELDS.map((f) => (
-        <div className="field" key={f.key}>
-          <label>{f.label}</label>
-          <input
-            value={settings[f.key]}
-            placeholder={f.placeholder}
-            spellCheck={false}
-            onChange={(e) => edit(f.key, e.target.value)}
-          />
-        </div>
-      ))}
+      {FIELDS.map((f) =>
+        f.key === 'path' ? (
+          <div className="field" key={f.key}>
+            <label>{f.label}</label>
+            <div className="path-pick">
+              <button className="btn" onClick={pickFolder}>
+                Выбрать папку…
+              </button>
+              <span className={`path-value ${settings.path ? '' : 'empty'}`} title={settings.path}>
+                {settings.path || 'папка не выбрана'}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="field" key={f.key}>
+            <label>{f.label}</label>
+            <input
+              value={settings[f.key]}
+              placeholder={f.placeholder}
+              spellCheck={false}
+              onChange={(e) => edit(f.key, e.target.value)}
+            />
+          </div>
+        )
+      )}
       <div className="settings-actions">
         <button className="btn primary" disabled={!dirty} onClick={save}>
           Сохранить

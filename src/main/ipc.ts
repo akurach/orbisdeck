@@ -1,7 +1,7 @@
 // Wires the typed contract to Electron IPC. This is the Electron *implementation*
 // of CockpitApi. All node-pty / fs access funnels through here — nothing leaks past.
 
-import { BrowserWindow, ipcMain } from 'electron'
+import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { IpcChannels, IpcEvents } from '../shared/ipc-contract'
 import type { ProjectId, SpawnTerminalRequest, TerminalId } from '../shared/types'
 import { Store } from './store'
@@ -18,6 +18,16 @@ export function registerIpc(store: Store): TerminalManager {
     (id, data) => broadcast(IpcEvents.terminalData, { id, data }),
     (id, exitCode, signal) => broadcast(IpcEvents.terminalExit, { id, exitCode, signal })
   )
+
+  ipcMain.handle(IpcChannels.pickDirectory, async (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender) ?? undefined
+    const res = await dialog.showOpenDialog(win!, {
+      properties: ['openDirectory', 'createDirectory'],
+      title: 'Выберите папку проекта'
+    })
+    if (res.canceled || res.filePaths.length === 0) return null
+    return res.filePaths[0]
+  })
 
   ipcMain.handle(IpcChannels.getState, () => store.getState())
 

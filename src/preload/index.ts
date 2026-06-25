@@ -7,6 +7,7 @@ import { IpcChannels, IpcEvents, type CockpitApi } from '../shared/ipc-contract'
 import type { TerminalDataEvent, TerminalExitEvent } from '../shared/types'
 
 const api: CockpitApi = {
+  pickDirectory: () => ipcRenderer.invoke(IpcChannels.pickDirectory),
   getState: () => ipcRenderer.invoke(IpcChannels.getState),
   addProject: (input) => ipcRenderer.invoke(IpcChannels.addProject, input),
   updateProject: (id, patch) => ipcRenderer.invoke(IpcChannels.updateProject, id, patch),

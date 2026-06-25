@@ -365,6 +365,32 @@ body {
   border-color: var(--accent);
 }
 
+.path-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.path-pick .btn {
+  flex: none;
+}
+
+.path-value {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl; /* keep the tail (folder name) visible when truncated */
+  text-align: left;
+}
+
+.path-value.empty {
+  color: var(--text-faint);
+  direction: ltr;
+}
+
 .settings-actions {
   display: flex;
   justify-content: space-between;

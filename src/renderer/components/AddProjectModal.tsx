@@ -11,7 +11,18 @@ export function AddProjectModal({ onCancel, onCreate }: Props): JSX.Element {
   const [name, setName] = useState('')
   const [path, setPath] = useState('')
 
-  const canCreate = name.trim().length > 0
+  const canCreate = name.trim().length > 0 && path.trim().length > 0
+
+  const pickFolder = async (): Promise<void> => {
+    const chosen = await window.cockpit.pickDirectory()
+    if (!chosen) return
+    setPath(chosen)
+    // Auto-fill the name from the folder basename when the user hasn't typed one.
+    if (!name.trim()) {
+      const base = chosen.split('/').filter(Boolean).pop()
+      if (base) setName(base)
+    }
+  }
 
   const create = (): void => {
     if (!canCreate) return
@@ -33,14 +44,15 @@ export function AddProjectModal({ onCancel, onCreate }: Props): JSX.Element {
           />
         </div>
         <div className="field">
-          <label>Путь</label>
-          <input
-            value={path}
-            placeholder="/Users/you/Projects/App"
-            spellCheck={false}
-            onChange={(e) => setPath(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && create()}
-          />
+          <label>Папка проекта</label>
+          <div className="path-pick">
+            <button className="btn" onClick={pickFolder}>
+              Выбрать папку…
+            </button>
+            <span className={`path-value ${path ? '' : 'empty'}`} title={path}>
+              {path || 'папка не выбрана'}
+            </span>
+          </div>
         </div>
         <div className="modal-actions">
           <button className="btn" onClick={onCancel}>
