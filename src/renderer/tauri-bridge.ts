@@ -1,57 +1,12 @@
-// Tauri implementation of the CockpitApi seam (spike). When the renderer runs inside
-// the Tauri webview we install `window.cockpit` backed by Tauri commands/events instead
-// of the Electron preload. Only terminals are wired to the native (Rust) backend; the
-// rest is stubbed so the existing React UI loads and a real pty can be exercised.
+// Tauri implementation of the CockpitApi seam. When the renderer runs inside the Tauri
+// webview we install `window.cockpit` backed by Tauri commands/events instead of the
+// Electron preload. The React UI is unchanged — only this provider differs.
 
-import type {
-  AgentHooksStatus,
-  AgentInfo,
-  AppState,
-  ClaudePermissions,
-  DetectedSettings,
-  DiffResult,
-  DirEntry,
-  DockerStatus,
-  FileContent,
-  GitSummary,
-  GlobalClaudeConfig,
-  Project,
-  SpawnTerminalRequest,
-  TerminalInfo,
-  TerminalDataEvent,
-  TerminalExitEvent
-} from '../shared/types'
 import type { CockpitApi } from '../shared/ipc-contract'
+import type { ProjectId } from '../shared/types'
 
 function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-}
-
-// One hardcoded project for the spike so the UI mounts a project and the terminal
-// panel auto-spawns into a real directory.
-const SPIKE_PATH = '/Users/avkurach/Documents/AI-Claude-Cockpit'
-const SPIKE_PROJECT: Project = {
-  id: 'spike',
-  name: 'spike (tauri)',
-  settings: {
-    path: SPIKE_PATH,
-    runCommand: '',
-    testCommand: '',
-    buildCommand: '',
-    docsPath: '',
-    claudeMdPath: './CLAUDE.md',
-    autoLaunchCommand: '' // plain shell — exercises the pty without launching claude
-  }
-}
-
-const EMPTY_GIT: GitSummary = {
-  isRepo: false,
-  branch: '',
-  changed: 0,
-  staged: 0,
-  unstaged: 0,
-  recent: [],
-  fileStatus: {}
 }
 
 export async function installTauriCockpit(): Promise<void> {
@@ -59,115 +14,67 @@ export async function installTauriCockpit(): Promise<void> {
   const { invoke } = await import('@tauri-apps/api/core')
   const { listen } = await import('@tauri-apps/api/event')
 
-  const subscribe = <T>(event: string, handler: (e: T) => void): (() => void) => {
+  const sub = <T>(event: string, handler: (e: T) => void): (() => void) => {
     let un: (() => void) | undefined
     listen<T>(event, (e) => handler(e.payload)).then((f) => (un = f))
     return () => un?.()
   }
 
   const api: CockpitApi = {
-    // dialogs / detect
-    pickDirectory: async () => null,
-    detectProjectSettings: async (): Promise<DetectedSettings> => ({ sources: [] }),
+    pickDirectory: () => invoke('pick_directory'),
+    detectProjectSettings: (path) => invoke('detect_project_settings', { path }),
 
-    // projects (single spike project, in-memory)
-    getState: async (): Promise<AppState> => ({
-      projects: [SPIKE_PROJECT],
-      activeProjectId: SPIKE_PROJECT.id,
-      agentHooksPrompted: true
-    }),
-    addProject: async (input) => ({ id: 'spike', name: input.name, settings: input.settings }),
-    updateProject: async (_id, patch) => ({
-      ...SPIKE_PROJECT,
-      name: patch.name ?? SPIKE_PROJECT.name,
-      settings: { ...SPIKE_PROJECT.settings, ...(patch.settings ?? {}) }
-    }),
-    removeProject: async () => {},
-    reorderProjects: async () => {},
-    setActiveProject: async () => {},
+    getState: () => invoke('get_state'),
+    addProject: (input) => invoke('add_project', { input }),
+    updateProject: (id, patch) => invoke('update_project', { id, patch }),
+    removeProject: (id) => invoke('remove_project', { id }),
+    setActiveProject: (id) => invoke('set_active_project', { id }),
+    reorderProjects: (ids) => invoke('reorder_projects', { ids }),
 
-    // terminals — wired to the Rust pty backend
-    listTerminals: async () => [],
-    spawnTerminal: async (req: SpawnTerminalRequest): Promise<TerminalInfo> => {
-      const id = await invoke<string>('spawn_terminal', {
-        cwd: req.cwd || SPIKE_PATH,
-        command: req.command ?? null,
-        cols: req.cols || 80,
-        rows: req.rows || 24
-      })
-      return {
-        id,
+    listTerminals: (projectId) => invoke('list_terminals', { projectId }),
+    spawnTerminal: (req) =>
+      invoke('spawn_terminal', {
         projectId: req.projectId,
-        title: req.title || (req.command ? req.command : 'shell'),
-        command: req.command || '',
-        cwd: req.cwd || SPIKE_PATH,
-        startedAt: Date.now(),
-        alive: true,
-        pid: 0
-      }
-    },
-    writeTerminal: async (id, data) => invoke('write_terminal', { id, data }),
-    resizeTerminal: async (id, cols, rows) => invoke('resize_terminal', { id, cols, rows }),
-    killTerminal: async (id) => invoke('kill_terminal', { id }),
-    getTerminalBuffer: async () => '',
+        title: req.title ?? null,
+        command: req.command ?? null,
+        cols: req.cols,
+        rows: req.rows
+      }),
+    writeTerminal: (id, data) => invoke('write_terminal', { id, data }),
+    resizeTerminal: (id, cols, rows) => invoke('resize_terminal', { id, cols, rows }),
+    killTerminal: (id) => invoke('kill_terminal', { id }),
+    getTerminalBuffer: (id) => invoke('get_terminal_buffer', { id }),
 
-    // everything else — stubbed for the spike
-    getGitSummary: async () => EMPTY_GIT,
-    getDiff: async (): Promise<DiffResult> => ({ path: '', text: '', truncated: false, binary: false }),
-    listDir: async (): Promise<DirEntry[]> => [],
-    readFile: async (): Promise<FileContent> => ({
-      path: '',
-      content: '',
-      language: '',
-      truncated: false,
-      binary: false
-    }),
-    watchProject: async () => {},
-    unwatchProject: async () => {},
-    getAgents: async (): Promise<AgentInfo[]> => [],
-    getAgentHooksStatus: async (): Promise<AgentHooksStatus> => ({ installed: false }),
-    installAgentHooks: async (): Promise<AgentHooksStatus> => ({ installed: false }),
-    uninstallAgentHooks: async (): Promise<AgentHooksStatus> => ({ installed: false }),
-    markAgentHooksPrompted: async () => {},
-    getNote: async () => '',
-    setNote: async () => {},
-    getDockerStatus: async (): Promise<DockerStatus> => ({
-      available: false,
-      hasCompose: false,
-      containers: [],
-      error: ''
-    }),
-    dockerAction: async () => ({ ok: false, error: 'spike' }),
-    getDockerLogs: async () => '',
-    getGlobalClaude: async (): Promise<GlobalClaudeConfig> => ({
-      claudeDir: '',
-      exists: false,
-      settingsText: '',
-      settingsPath: '',
-      localSettingsText: '',
-      localSettingsPath: '',
-      claudeMdText: '',
-      claudeMdPath: '',
-      permissions: { allow: [], ask: [], deny: [] } as ClaudePermissions,
-      hooks: [],
-      mcpServers: [],
-      commands: []
-    }),
-    readClaudeFile: async (): Promise<FileContent> => ({
-      path: '',
-      content: '',
-      language: '',
-      truncated: false,
-      binary: false
-    }),
-    writeClaudeSettings: async () => ({ ok: false, error: 'spike' }),
-    setClaudePermissions: async () => ({ ok: false, error: 'spike' }),
+    getGitSummary: (projectId) => invoke('get_git_summary', { projectId }),
+    getDiff: (projectId, relPath) => invoke('get_diff', { projectId, relPath: relPath ?? null }),
+    listDir: (projectId, relPath) => invoke('list_dir', { projectId, relPath }),
+    readFile: (projectId, relPath) => invoke('read_file', { projectId, relPath }),
+    watchProject: (projectId) => invoke('watch_project', { projectId }),
+    unwatchProject: (projectId) => invoke('unwatch_project', { projectId }),
 
-    // events
-    onTerminalData: (handler) => subscribe<TerminalDataEvent>('term-data', handler),
-    onTerminalExit: (handler) => subscribe<TerminalExitEvent>('term-exit', handler),
-    onFilesChanged: () => () => {},
-    onNotify: () => () => {}
+    getAgents: (projectId) => invoke('get_agents', { projectId }),
+    getAgentHooksStatus: () => invoke('get_agent_hooks_status'),
+    installAgentHooks: () => invoke('install_agent_hooks'),
+    uninstallAgentHooks: () => invoke('uninstall_agent_hooks'),
+    markAgentHooksPrompted: () => invoke('mark_agent_hooks_prompted'),
+    getNote: (projectId) => invoke('get_note', { projectId }),
+    setNote: (projectId, text) => invoke('set_note', { projectId, text }),
+
+    getDockerStatus: (projectId) => invoke('get_docker_status', { projectId }),
+    dockerAction: (projectId, action, service) =>
+      invoke('docker_action', { projectId, action, service: service ?? null }),
+    getDockerLogs: (projectId, service) =>
+      invoke('get_docker_logs', { projectId, service: service ?? null }),
+
+    getGlobalClaude: () => invoke('get_global_claude'),
+    readClaudeFile: (relPath) => invoke('read_claude_file', { relPath }),
+    writeClaudeSettings: (text) => invoke('write_claude_settings', { text }),
+    setClaudePermissions: (perms) => invoke('set_claude_permissions', { perms }),
+
+    onTerminalData: (handler) => sub('term-data', handler),
+    onTerminalExit: (handler) => sub('term-exit', handler),
+    onFilesChanged: (handler) => sub<{ projectId: ProjectId }>('files-changed', handler),
+    onNotify: (handler) => sub('notify', handler)
   }
 
   ;(window as unknown as { cockpit: CockpitApi }).cockpit = api

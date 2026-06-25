@@ -1,4 +1,36 @@
-# Tauri spike — findings
+# Tauri port
+
+**Status: full backend port complete.** The entire `CockpitApi` is implemented in Rust as
+Tauri commands; the React renderer runs unchanged behind `src/renderer/tauri-bridge.ts`.
+The Electron build remains and is still the default. Validated on macOS (app launches,
+store loads a project, a terminal spawns with the project's cwd, no panics).
+
+## Modules (src-tauri/src)
+
+- `lib.rs` — terminals (portable-pty: spawn/write/resize/kill, scrollback buffer, env +
+  `.env` merge + cwd subdir), file watcher (`notify` → `files-changed`), notification
+  poller (`notify` event), folder picker (`rfd`), and all command wiring.
+- `store.rs` — projects/notes/active/hook-prompt JSON state (atomic writes).
+- `files.rs` — lazy `list_dir` + capped `read_file` (image/binary/lang detection).
+- `git.rs` — summary + diff via the `git` CLI.
+- `docker.rs` — compose-scoped status/action/logs via the `docker` CLI.
+- `detect.rs` — run/test/build/.env detection.
+- `claude.rs` — global `~/.claude` read + settings/permissions writes.
+- `agents.rs` — transcript agents + hooks (install/uninstall/status/events/notify) +
+  interrupted-agent detection.
+- `types.rs` — serde mirror of `src/shared/types.ts` (camelCase payloads).
+
+## Remaining before it replaces Electron
+
+- Eyeball each panel in the Tauri window (git/files/docker/claude/agents render).
+- Native desktop notification popup (currently emits the `notify` event for the tab badge
+  only; add `tauri-plugin-notification` for the OS popup like the Electron main did).
+- Packaging/signing (`cargo tauri build`), icon set, app metadata.
+- Decide store-path migration from the Electron userData location.
+
+---
+
+## Original spike findings
 
 **Verdict: viable. The seam architecture pays off — the React renderer ports unchanged;
 only the native backend is a Rust rewrite.** Validated end-to-end on macOS.
