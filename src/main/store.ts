@@ -23,7 +23,11 @@ export class Store {
     try {
       if (existsSync(this.file)) {
         const raw = JSON.parse(readFileSync(this.file, 'utf8'))
-        return { projects: raw.projects ?? [], activeProjectId: raw.activeProjectId ?? null }
+        return {
+          projects: raw.projects ?? [],
+          activeProjectId: raw.activeProjectId ?? null,
+          agentHooksPrompted: raw.agentHooksPrompted ?? false
+        }
       }
     } catch (err) {
       console.error('[store] failed to load, starting empty:', err)
@@ -42,6 +46,11 @@ export class Store {
 
   getState(): AppState {
     return this.state
+  }
+
+  markAgentHooksPrompted(): void {
+    this.state.agentHooksPrompted = true
+    this.persist()
   }
 
   addProject(input: { name: string; settings: ProjectSettings }): Project {

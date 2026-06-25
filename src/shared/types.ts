@@ -107,6 +107,13 @@ export interface TerminalExitEvent {
 export interface AppState {
   projects: Project[]
   activeProjectId: ProjectId | null
+  /** true once the user has been offered the live-agents (hooks) setup, so we don't re-ask */
+  agentHooksPrompted?: boolean
+}
+
+/** Whether the live-agents Claude hooks are installed in ~/.claude/settings.json. */
+export interface AgentHooksStatus {
+  installed: boolean
 }
 
 // --- M3: git summary ---

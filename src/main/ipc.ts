@@ -13,6 +13,7 @@ import { FileService } from './files'
 import { ClaudeService } from './claude'
 import { DockerService } from './docker'
 import { AgentsService } from './agents'
+import { AgentHooksService } from './agent-hooks'
 import { detectProjectSettings } from './detect'
 import type { DockerAction } from '../shared/types'
 
@@ -74,6 +75,7 @@ export function registerIpc(store: Store): Services {
   const claude = new ClaudeService()
   const docker = new DockerService()
   const agents = new AgentsService()
+  const agentHooks = new AgentHooksService()
 
   const projectPath = (id: ProjectId): string => store.getProject(id)?.settings.path ?? ''
 
@@ -154,7 +156,19 @@ export function registerIpc(store: Store): Services {
   ipcMain.handle(IpcChannels.unwatchProject, (_e, id: ProjectId) => files.unwatch(id))
 
   // --- agents (M5) ---
-  ipcMain.handle(IpcChannels.getAgents, (_e, id: ProjectId) => agents.list(projectPath(id)))
+  // Prefer live hook events when installed; else fall back to the (lagged) transcript.
+  ipcMain.handle(IpcChannels.getAgents, (_e, id: ProjectId) => {
+    const path = projectPath(id)
+    if (agentHooks.status().installed) {
+      const live = agentHooks.readEvents(path)
+      if (live.length > 0) return live
+    }
+    return agents.list(path)
+  })
+  ipcMain.handle(IpcChannels.getAgentHooksStatus, () => agentHooks.status())
+  ipcMain.handle(IpcChannels.installAgentHooks, () => agentHooks.install())
+  ipcMain.handle(IpcChannels.uninstallAgentHooks, () => agentHooks.uninstall())
+  ipcMain.handle(IpcChannels.markAgentHooksPrompted, () => store.markAgentHooksPrompted())
 
   // --- docker (M5) ---
   ipcMain.handle(IpcChannels.getDockerStatus, (_e, id: ProjectId) => docker.status(projectPath(id)))

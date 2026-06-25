@@ -18,6 +18,7 @@ function encodeProjectDir(projectPath: string): string {
 }
 
 const MAX_SESSIONS = 3 // aggregate across the few most-recent sessions
+const RECENT_MS = 2 * 60 * 60 * 1000 // only sessions/agents from the last 2h are "current"
 
 /** The most-recently-modified top-level session .jsonl paths (ignores subagent
  *  subdirs). Several Claude sessions in one project write concurrently, so the
@@ -30,11 +31,13 @@ function recentTranscripts(projectPath: string): string[] {
   } catch {
     return []
   }
+  const cutoff = Date.now() - RECENT_MS
   const withMtime: { path: string; mtime: number }[] = []
   for (const f of files) {
     const p = join(dir, f)
     try {
-      withMtime.push({ path: p, mtime: statSync(p).mtimeMs })
+      const mtime = statSync(p).mtimeMs
+      if (mtime >= cutoff) withMtime.push({ path: p, mtime }) // ignore stale sessions
     } catch {
       /* skip */
     }
@@ -101,10 +104,14 @@ export class AgentsService {
       }
     }
 
-    const out = [...agents.values()].map((a) => ({
-      ...a,
-      status: finished.has(a.id) ? ('done' as const) : ('running' as const)
-    }))
+    const recentCutoff = Date.now() - RECENT_MS
+    const out = [...agents.values()]
+      .map((a) => ({
+        ...a,
+        status: finished.has(a.id) ? ('done' as const) : ('running' as const)
+      }))
+      // Keep running agents; drop long-finished ones so the panel reflects now.
+      .filter((a) => a.status === 'running' || a.startedAt === 0 || a.startedAt >= recentCutoff)
     out.sort((x, y) => {
       if (x.status !== y.status) return x.status === 'running' ? -1 : 1
       return y.startedAt - x.startedAt

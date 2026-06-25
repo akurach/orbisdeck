@@ -17,6 +17,25 @@ export function App(): JSX.Element {
 
   const activeId = cockpit.activeProject?.id ?? null
   const layout = useLayout(activeId ?? '__none__')
+  const [hooksOffer, setHooksOffer] = useState(false)
+
+  // One-time offer to enable live-agents hooks (writes ~/.claude/settings.json).
+  useEffect(() => {
+    if (!cockpit.ready || cockpit.state.agentHooksPrompted) return
+    let alive = true
+    window.cockpit.getAgentHooksStatus().then((s) => {
+      if (alive && !s.installed) setHooksOffer(true)
+    })
+    return () => {
+      alive = false
+    }
+  }, [cockpit.ready, cockpit.state.agentHooksPrompted])
+
+  const closeHooksOffer = async (install: boolean): Promise<void> => {
+    if (install) await window.cockpit.installAgentHooks()
+    await cockpit.markAgentHooksPrompted()
+    setHooksOffer(false)
+  }
 
   // Watch the active project's tree (debounced change events drive the file panels).
   // Reset the selected file when switching projects.
@@ -177,6 +196,28 @@ export function App(): JSX.Element {
       )}
 
       {globalClaude && <GlobalClaudeModal onClose={() => setGlobalClaude(false)} />}
+
+      {hooksOffer && (
+        <div className="modal-backdrop" onClick={() => closeHooksOffer(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Live-агенты Claude</h2>
+            <p className="modal-text">
+              OrbisDeck может показывать суб-агентов Claude в реальном времени (тип, статус),
+              если установить два хука в <code>~/.claude/settings.json</code>. Хуки лишь пишут
+              события запуска/остановки агентов в лог — твою конфигурацию они не трогают, а
+              выключить можно в любой момент в настройках. Без них агенты видны с задержкой.
+            </p>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => closeHooksOffer(false)}>
+                Позже
+              </button>
+              <button className="btn primary" onClick={() => closeHooksOffer(true)}>
+                Включить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

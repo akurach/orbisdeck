@@ -64,10 +64,22 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
   const [openCmd, setOpenCmd] = useState<FileContent | null>(null)
   const [mdView, setMdView] = useState<'elements' | 'text'>('elements')
   const [settingsView, setSettingsView] = useState<'tree' | 'text'>('tree')
+  const [hooksInstalled, setHooksInstalled] = useState<boolean | null>(null)
+  const [hooksBusy, setHooksBusy] = useState(false)
 
   useEffect(() => {
     window.cockpit.getGlobalClaude().then(setCfg)
+    window.cockpit.getAgentHooksStatus().then((s) => setHooksInstalled(s.installed))
   }, [])
+
+  const toggleHooks = async (): Promise<void> => {
+    setHooksBusy(true)
+    const s = hooksInstalled
+      ? await window.cockpit.uninstallAgentHooks()
+      : await window.cockpit.installAgentHooks()
+    setHooksInstalled(s.installed)
+    setHooksBusy(false)
+  }
 
   // Close on Escape.
   useEffect(() => {
@@ -93,6 +105,18 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
             Закрыть
           </button>
         </div>
+
+        {hooksInstalled !== null && (
+          <div className="hooks-row">
+            <span className={`dot ${hooksInstalled ? 'running' : 'finished'}`} />
+            <span className="hooks-label">
+              Live-агенты (хуки в settings.json): {hooksInstalled ? 'включены' : 'выключены'}
+            </span>
+            <button className="btn xs" disabled={hooksBusy} onClick={toggleHooks}>
+              {hooksBusy ? '…' : hooksInstalled ? 'Выключить' : 'Включить'}
+            </button>
+          </div>
+        )}
 
         {!cfg ? (
           <div className="viewer-empty">…</div>

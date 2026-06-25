@@ -6,6 +6,7 @@
 // node-pty / fs / simple-git / electron live behind this. They never cross it.
 
 import type {
+  AgentHooksStatus,
   AgentInfo,
   AppState,
   DetectedSettings,
@@ -64,8 +65,16 @@ export interface CockpitApi {
   watchProject(projectId: ProjectId): Promise<void>
   unwatchProject(projectId: ProjectId): Promise<void>
 
-  // --- agents (M5): Claude sub-agents from the live session transcript ---
+  // --- agents (M5): Claude sub-agents (hook events when installed, else transcript) ---
   getAgents(projectId: ProjectId): Promise<AgentInfo[]>
+  /** Are the live-agents hooks installed in ~/.claude/settings.json? */
+  getAgentHooksStatus(): Promise<AgentHooksStatus>
+  /** Install the hooks + hook script (opt-in; merges, never clobbers). */
+  installAgentHooks(): Promise<AgentHooksStatus>
+  /** Remove only our hooks + script. */
+  uninstallAgentHooks(): Promise<AgentHooksStatus>
+  /** Remember that the one-time live-agents offer was shown. */
+  markAgentHooksPrompted(): Promise<void>
 
   // --- docker (M5), compose-scoped via the docker CLI ---
   getDockerStatus(projectId: ProjectId): Promise<DockerStatus>
@@ -112,6 +121,10 @@ export const IpcChannels = {
   watchProject: 'cockpit:watchProject',
   unwatchProject: 'cockpit:unwatchProject',
   getAgents: 'cockpit:getAgents',
+  getAgentHooksStatus: 'cockpit:getAgentHooksStatus',
+  installAgentHooks: 'cockpit:installAgentHooks',
+  uninstallAgentHooks: 'cockpit:uninstallAgentHooks',
+  markAgentHooksPrompted: 'cockpit:markAgentHooksPrompted',
   getDockerStatus: 'cockpit:getDockerStatus',
   dockerAction: 'cockpit:dockerAction',
   getDockerLogs: 'cockpit:getDockerLogs',

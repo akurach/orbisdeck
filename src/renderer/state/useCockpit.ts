@@ -67,6 +67,11 @@ export function useCockpit() {
     [refresh]
   )
 
+  const markAgentHooksPrompted = useCallback(async () => {
+    await window.cockpit.markAgentHooksPrompted()
+    await refresh()
+  }, [refresh])
+
   const setActiveProject = useCallback(
     async (id: ProjectId) => {
       await window.cockpit.setActiveProject(id)
@@ -86,6 +91,7 @@ export function useCockpit() {
     updateProject,
     removeProject,
     reorderProjects,
+    markAgentHooksPrompted,
     setActiveProject,
     refresh
   }

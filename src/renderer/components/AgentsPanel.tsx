@@ -20,6 +20,8 @@ function elapsed(ms: number): string {
 export function AgentsPanel({ projectId }: Props): JSX.Element {
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [procs, setProcs] = useState<TerminalInfo[]>([])
+  const [hooksInstalled, setHooksInstalled] = useState<boolean | null>(null)
+  const [installing, setInstalling] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -28,6 +30,7 @@ export function AgentsPanel({ projectId }: Props): JSX.Element {
       window.cockpit.listTerminals(projectId).then((l) => alive && setProcs(l))
     }
     poll()
+    window.cockpit.getAgentHooksStatus().then((s) => alive && setHooksInstalled(s.installed))
     const id = setInterval(poll, 2000)
     const offExit = window.cockpit.onTerminalExit(poll)
     return () => {
@@ -37,12 +40,28 @@ export function AgentsPanel({ projectId }: Props): JSX.Element {
     }
   }, [projectId])
 
+  const enableLive = async (): Promise<void> => {
+    setInstalling(true)
+    const s = await window.cockpit.installAgentHooks()
+    setHooksInstalled(s.installed)
+    setInstalling(false)
+  }
+
   const running = agents.filter((a) => a.status === 'running').length
 
   return (
     <div className="agents-panel">
+      {hooksInstalled === false && (
+        <div className="agent-hint">
+          Live-агенты выключены — без хуков агенты видны с задержкой (по транскрипту).
+          <button className="btn xs" disabled={installing} onClick={enableLive}>
+            {installing ? '…' : 'Включить live'}
+          </button>
+        </div>
+      )}
       <div className="git-section-label">
         Суб-агенты Claude{running > 0 ? ` · ${running} активных` : ''}
+        {hooksInstalled ? ' · live' : ''}
       </div>
       {agents.length === 0 ? (
         <div className="deferred">
