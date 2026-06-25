@@ -8,11 +8,15 @@ import { BottomPanel } from './components/BottomPanel'
 import { Splitter } from './components/Splitter'
 import { AddProjectModal } from './components/AddProjectModal'
 import { GlobalClaudeModal } from './components/GlobalClaudeModal'
+import { AppSettingsModal } from './components/AppSettingsModal'
+import { useT } from './i18n'
 
 export function App(): JSX.Element {
+  const t = useT()
   const cockpit = useCockpit()
   const [adding, setAdding] = useState(false)
   const [globalClaude, setGlobalClaude] = useState(false)
+  const [appSettings, setAppSettings] = useState(false)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
 
   const activeId = cockpit.activeProject?.id ?? null
@@ -82,17 +86,17 @@ export function App(): JSX.Element {
       return (
         <button
           className={`panel-rail rail-bottom ${onTop ? 'rail-bottom-top' : ''}`}
-          title="Показать нижнюю панель"
+          title={t('app.showBottomPanel')}
           onClick={layout.toggleBottom}
         >
-          {onTop ? '⌄' : '⌃'} Нижняя панель
+          {onTop ? '⌄' : '⌃'} {t('app.bottomPanel')}
         </button>
       )
     }
     const splitter = (
       <Splitter
         orientation="horizontal"
-        ariaLabel="Изменить высоту нижней панели"
+        ariaLabel={t('app.resizeBottom')}
         onResize={(d) => layout.resizeBottom(onTop ? -d : d)}
         onResizeEnd={layout.commit}
       />
@@ -134,7 +138,15 @@ export function App(): JSX.Element {
         />
         <div className="topbar-right">
           <button className="btn global-claude-btn" onClick={() => setGlobalClaude(true)}>
-            Global Claude
+            {t('app.globalClaude')}
+          </button>
+          <button
+            className="btn icon-btn"
+            title={t('app.settings')}
+            aria-label={t('app.settings')}
+            onClick={() => setAppSettings(true)}
+          >
+            ⚙
           </button>
         </div>
       </header>
@@ -151,7 +163,7 @@ export function App(): JSX.Element {
               const context = layout.rightCollapsed ? (
                 <button
                   className="panel-rail rail-right"
-                  title="Показать панель"
+                  title={t('app.showPanel')}
                   onClick={layout.toggleRight}
                 >
                   {onLeft ? '›' : '‹'}
@@ -174,7 +186,7 @@ export function App(): JSX.Element {
               const splitter = layout.rightCollapsed ? null : (
                 <Splitter
                   orientation="vertical"
-                  ariaLabel="Изменить ширину панели"
+                  ariaLabel={t('app.resizeRight')}
                   onResize={(d) => layout.resizeRight(onLeft ? -d : d)}
                   onResizeEnd={layout.commit}
                 />
@@ -199,9 +211,9 @@ export function App(): JSX.Element {
       ) : (
         <main className="workspace">
           <div className="empty-state">
-            <p>Нет проектов</p>
+            <p>{t('app.noProjects')}</p>
             <button className="btn primary" onClick={() => setAdding(true)}>
-              Добавить проект
+              {t('app.addProject')}
             </button>
           </div>
         </main>
@@ -219,22 +231,19 @@ export function App(): JSX.Element {
 
       {globalClaude && <GlobalClaudeModal onClose={() => setGlobalClaude(false)} />}
 
+      {appSettings && <AppSettingsModal onClose={() => setAppSettings(false)} />}
+
       {hooksOffer && (
         <div className="modal-backdrop" onClick={() => closeHooksOffer(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Live-агенты Claude</h2>
-            <p className="modal-text">
-              OrbisDeck может показывать суб-агентов Claude в реальном времени (тип, статус),
-              если установить два хука в <code>~/.claude/settings.json</code>. Хуки лишь пишут
-              события запуска/остановки агентов в лог — твою конфигурацию они не трогают, а
-              выключить можно в любой момент в настройках. Без них агенты видны с задержкой.
-            </p>
+            <h2>{t('app.hooksTitle')}</h2>
+            <p className="modal-text">{t('app.hooksText')}</p>
             <div className="modal-actions">
               <button className="btn" onClick={() => closeHooksOffer(false)}>
-                Позже
+                {t('common.later')}
               </button>
               <button className="btn primary" onClick={() => closeHooksOffer(true)}>
-                Включить
+                {t('common.enable')}
               </button>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useT } from '../i18n'
 
 interface Section {
   level: number
@@ -19,7 +20,8 @@ export function parseSections(md: string): Section[] {
     } else if (cur) {
       cur.body += (cur.body ? '\n' : '') + line
     } else if (line.trim()) {
-      cur = { level: 0, title: '(вступление)', body: line }
+      // level 0 marks the pre-heading intro block; its title is rendered via i18n
+      cur = { level: 0, title: '', body: line }
     }
   }
   if (cur) out.push(cur)
@@ -27,12 +29,14 @@ export function parseSections(md: string): Section[] {
 }
 
 function ClaudeSection({ section }: { section: Section }): JSX.Element {
+  const t = useT()
   const [open, setOpen] = useState(true)
+  const title = section.level === 0 ? t('elements.intro') : section.title
   return (
     <div className={`claude-element lvl-${section.level}`}>
       <button className="claude-element-head" onClick={() => setOpen((o) => !o)}>
         <span className="claude-element-caret">{open ? '▾' : '▸'}</span>
-        <span className="claude-element-title">{section.title}</span>
+        <span className="claude-element-title">{title}</span>
       </button>
       {open && section.body && <pre className="claude-element-body">{section.body}</pre>}
     </div>

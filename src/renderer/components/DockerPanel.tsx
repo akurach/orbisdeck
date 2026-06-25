@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { DockerAction, DockerStatus, ProjectId } from '../../shared/types'
 import { LogsModal } from './LogsModal'
+import { useT } from '../i18n'
 
 interface Props {
   projectId: ProjectId
@@ -14,6 +15,7 @@ interface LogsState {
 }
 
 export function DockerPanel({ projectId }: Props): JSX.Element {
+  const t = useT()
   const [status, setStatus] = useState<DockerStatus | null>(null)
   const [busy, setBusy] = useState<string | null>(null) // `${action}:${service||'*'}`
   const [logs, setLogs] = useState<LogsState | null>(null)
@@ -37,18 +39,18 @@ export function DockerPanel({ projectId }: Props): JSX.Element {
 
   const openLogs = useCallback(
     async (service?: string): Promise<void> => {
-      const title = service ? `Логи · ${service}` : 'Логи · все контейнеры'
+      const title = service ? t('docker.logsTitleService', { service }) : t('docker.logsTitleAll')
       setLogs({ service, title, text: '', loading: true })
       const text = await window.cockpit.getDockerLogs(projectId, service)
       setLogs({ service, title, text, loading: false })
     },
-    [projectId]
+    [projectId, t]
   )
 
-  if (!status) return <div className="deferred">…</div>
-  if (!status.available) return <div className="deferred">Docker CLI не найден в PATH.</div>
+  if (!status) return <div className="deferred">{t('common.loading')}</div>
+  if (!status.available) return <div className="deferred">{t('docker.dockerCliNotFound')}</div>
   if (!status.hasCompose) {
-    return <div className="deferred">В корне проекта нет docker-compose.yml / compose.yaml.</div>
+    return <div className="deferred">{t('docker.noComposeFile')}</div>
   }
 
   const b = (action: DockerAction, svc?: string): boolean => busy === `${action}:${svc ?? '*'}`
@@ -63,14 +65,14 @@ export function DockerPanel({ projectId }: Props): JSX.Element {
           ■ Down all
         </button>
         <button className="btn" onClick={() => openLogs()}>
-          Логи (все)
+          {t('docker.logsAll')}
         </button>
       </div>
 
       {status.error && <div className="docker-error">{status.error}</div>}
 
       {status.containers.length === 0 ? (
-        <div className="deferred">Нет контейнеров. Нажмите «Up all» для запуска.</div>
+        <div className="deferred">{t('docker.noContainers')}</div>
       ) : (
         <div className="docker-list">
           {status.containers.map((c) => {
@@ -89,19 +91,19 @@ export function DockerPanel({ projectId }: Props): JSX.Element {
                   {running ? (
                     <>
                       <button className="btn xs" disabled={!!busy} onClick={() => act('restart', svc)}>
-                        {b('restart', svc) ? '…' : '↻'}
+                        {b('restart', svc) ? t('common.loading') : '↻'}
                       </button>
                       <button className="btn xs" disabled={!!busy} onClick={() => act('stop', svc)}>
-                        {b('stop', svc) ? '…' : '■ Stop'}
+                        {b('stop', svc) ? t('common.loading') : '■ Stop'}
                       </button>
                     </>
                   ) : (
                     <button className="btn xs" disabled={!!busy} onClick={() => act('up', svc)}>
-                      {b('up', svc) ? '…' : '▶ Up'}
+                      {b('up', svc) ? t('common.loading') : '▶ Up'}
                     </button>
                   )}
                   <button className="btn xs" onClick={() => openLogs(svc)}>
-                    Логи
+                    {t('docker.logs')}
                   </button>
                 </div>
               </div>

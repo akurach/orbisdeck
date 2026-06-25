@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Project, TerminalId, TerminalInfo } from '../../shared/types'
 import { TerminalView } from './TerminalView'
 import { moveItem, useTabReorder } from '../state/useTabReorder'
+import { useT } from '../i18n'
 
 interface Props {
   project: Project
@@ -11,6 +12,7 @@ const DEFAULT_COLS = 80
 const DEFAULT_ROWS = 24
 
 export function TerminalPanel({ project }: Props): JSX.Element {
+  const t = useT()
   const [terminals, setTerminals] = useState<TerminalInfo[]>([])
   const [activeId, setActiveId] = useState<TerminalId | null>(null)
 
@@ -86,13 +88,13 @@ export function TerminalPanel({ project }: Props): JSX.Element {
   return (
     <section className="terminal-panel">
       <header className="panel-head">
-        <span className="panel-title">Терминал</span>
+        <span className="panel-title">{t('terminal.title')}</span>
         <span className="panel-cwd">{settings.path || '—'}</span>
         <div className="panel-actions">
           <button
             className="btn"
             disabled={runDisabled}
-            title={settings.runCommand || 'команда запуска не задана'}
+            title={settings.runCommand || t('terminal.runNotSet')}
             onClick={() => spawn({ title: 'run', command: settings.runCommand })}
           >
             ▶ Run
@@ -100,7 +102,7 @@ export function TerminalPanel({ project }: Props): JSX.Element {
           <button
             className="btn"
             disabled={testDisabled}
-            title={settings.testCommand || 'команда тестов не задана'}
+            title={settings.testCommand || t('terminal.testNotSet')}
             onClick={() => spawn({ title: 'tests', command: settings.testCommand })}
           >
             Tests
@@ -108,7 +110,7 @@ export function TerminalPanel({ project }: Props): JSX.Element {
           <button
             className="btn"
             disabled={buildDisabled}
-            title={settings.buildCommand || 'команда сборки не задана'}
+            title={settings.buildCommand || t('terminal.buildNotSet')}
             onClick={() => spawn({ title: 'build', command: settings.buildCommand })}
           >
             Build
@@ -146,7 +148,7 @@ export function TerminalPanel({ project }: Props): JSX.Element {
         {terminals.map((t) => (
           <TerminalView key={t.id} terminalId={t.id} active={t.id === activeId} />
         ))}
-        {terminals.length === 0 && <div className="term-empty">Нет активных терминалов</div>}
+        {terminals.length === 0 && <div className="term-empty">{t('terminal.empty')}</div>}
       </div>
     </section>
   )

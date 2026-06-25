@@ -3,6 +3,7 @@ import hljs from 'highlight.js/lib/common'
 import 'highlight.js/styles/github-dark.css'
 import type { FileContent, Project } from '../../shared/types'
 import { ClaudeElements } from './ClaudeElements'
+import { useT } from '../i18n'
 
 interface Props {
   project: Project
@@ -12,6 +13,7 @@ interface Props {
 type View = 'elements' | 'text'
 
 export function ClaudePanel({ project, onOpenGlobal }: Props): JSX.Element {
+  const t = useT()
   const [file, setFile] = useState<FileContent | null>(null)
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<View>('elements')
@@ -42,7 +44,7 @@ export function ClaudePanel({ project, onOpenGlobal }: Props): JSX.Element {
   return (
     <div className="claude-panel">
       <button className="btn claude-global-btn" onClick={onOpenGlobal}>
-        ⚙ Глобальная конфигурация Claude
+        ⚙ {t('claude.globalConfig')}
       </button>
 
       <div className="claude-head">
@@ -53,13 +55,13 @@ export function ClaudePanel({ project, onOpenGlobal }: Props): JSX.Element {
               className={`viewer-toggle-btn ${view === 'elements' ? 'active' : ''}`}
               onClick={() => setView('elements')}
             >
-              Элементы
+              {t('claude.elements')}
             </button>
             <button
               className={`viewer-toggle-btn ${view === 'text' ? 'active' : ''}`}
               onClick={() => setView('text')}
             >
-              Текст
+              {t('claude.text')}
             </button>
           </div>
         )}
@@ -67,12 +69,12 @@ export function ClaudePanel({ project, onOpenGlobal }: Props): JSX.Element {
       <div className="claude-path">{relPath}</div>
 
       {loading ? (
-        <div className="viewer-empty">…</div>
+        <div className="viewer-empty">{t('common.loading')}</div>
       ) : !file?.content ? (
-        <div className="viewer-empty">CLAUDE.md не найден в этом проекте</div>
+        <div className="viewer-empty">{t('claude.notFound')}</div>
       ) : (
         <>
-          {file.truncated && <div className="viewer-warn">обрезано (большой файл)</div>}
+          {file.truncated && <div className="viewer-warn">{t('claude.truncated')}</div>}
           {view === 'elements' ? (
             <ClaudeElements text={file.content} />
           ) : (

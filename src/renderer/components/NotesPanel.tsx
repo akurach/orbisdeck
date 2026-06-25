@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ProjectId } from '../../shared/types'
+import { useT } from '../i18n'
 
 // Per-project free-text notes, persisted in the store (debounced save).
 export function NotesPanel({ projectId }: { projectId: ProjectId }): JSX.Element {
+  const t = useT()
   const [text, setText] = useState('')
   const [loaded, setLoaded] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -31,7 +33,7 @@ export function NotesPanel({ projectId }: { projectId: ProjectId }): JSX.Element
     <textarea
       className="notes-area"
       value={text}
-      placeholder="Заметки по проекту — сохраняются автоматически…"
+      placeholder={t('notes.placeholder')}
       spellCheck={false}
       disabled={!loaded}
       onChange={(e) => onChange(e.target.value)}

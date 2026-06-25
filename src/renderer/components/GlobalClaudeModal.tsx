@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import hljs from 'highlight.js/lib/common'
 import 'highlight.js/styles/github-dark.css'
 import type { FileContent, GlobalClaudeConfig } from '../../shared/types'
+import { useT } from '../i18n'
 import { ClaudeElements } from './ClaudeElements'
-import { JsonTree, setAtPath } from './JsonTree'
+import { ClaudeSettingsForm } from './ClaudeSettingsForm'
 import { PermissionsEditor } from './PermissionsEditor'
 
 interface Props {
@@ -12,28 +13,19 @@ interface Props {
 
 type Section = 'settings' | 'permissions' | 'hooks' | 'mcp' | 'commands' | 'claudemd'
 
-const SECTIONS: { key: Section; label: string }[] = [
-  { key: 'settings', label: 'Settings' },
-  { key: 'permissions', label: 'Permissions' },
-  { key: 'hooks', label: 'Hooks' },
-  { key: 'mcp', label: 'MCP' },
-  { key: 'commands', label: 'Команды' },
-  { key: 'claudemd', label: 'CLAUDE.md' }
+// Plain-language hook-event descriptions, keyed so each resolves through i18n at render.
+const HOOK_EVENTS = [
+  'PreToolUse',
+  'PostToolUse',
+  'UserPromptSubmit',
+  'Notification',
+  'Stop',
+  'SubagentStart',
+  'SubagentStop',
+  'SessionStart',
+  'SessionEnd',
+  'PreCompact'
 ]
-
-// Plain-language description of each Claude Code hook event.
-const HOOK_EVENT_DESC: Record<string, string> = {
-  PreToolUse: 'Перед вызовом инструмента (можно разрешить/заблокировать). matcher — по имени инструмента.',
-  PostToolUse: 'После того как инструмент отработал.',
-  UserPromptSubmit: 'Когда ты отправляешь сообщение — до того как Claude его обработает.',
-  Notification: 'Когда Claude шлёт уведомление (ждёт ввода/разрешения).',
-  Stop: 'Когда Claude закончил ответ (ход завершён).',
-  SubagentStart: 'Когда запускается суб-агент (Task/Agent).',
-  SubagentStop: 'Когда суб-агент завершился.',
-  SessionStart: 'При старте сессии Claude.',
-  SessionEnd: 'При завершении сессии.',
-  PreCompact: 'Перед уплотнением контекста.'
-}
 
 function highlight(code: string, language: string): string {
   if (!code) return ''
@@ -56,95 +48,26 @@ function Code({ code, language }: { code: string; language: string }): JSX.Eleme
   )
 }
 
-// settings.json as a collapsible tree of editable fields (default) or raw text.
-// Editing is allowed only for the main settings.json; edits write back atomically.
-function SettingsView({
-  text,
-  view,
-  editable,
-  onSaved
-}: {
-  text: string
-  view: 'tree' | 'text'
-  editable?: boolean
-  onSaved?: () => void
-}): JSX.Element {
-  const parsed = useMemo(() => {
-    if (!text) return undefined
-    try {
-      return JSON.parse(text)
-    } catch {
-      return undefined
-    }
-  }, [text])
-
-  const [draft, setDraft] = useState<unknown>(parsed)
-  const [dirty, setDirty] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    setDraft(parsed)
-    setDirty(false)
-    setError('')
-  }, [parsed])
-
-  if (!text) return <div className="viewer-empty">settings.json отсутствует</div>
-  if (view === 'text' || parsed === undefined) return <Code code={text} language="json" />
-
-  if (!editable) return <JsonTree json={parsed as never} />
-
-  const save = async (): Promise<void> => {
-    setSaving(true)
-    const res = await window.cockpit.writeClaudeSettings(JSON.stringify(draft, null, 2))
-    setSaving(false)
-    if (res.ok) {
-      setDirty(false)
-      onSaved?.()
-    } else {
-      setError(res.error)
-    }
-  }
-
-  return (
-    <div className="settings-edit">
-      <JsonTree
-        json={draft as never}
-        editable
-        onEdit={(path, value) => {
-          setDraft((d: unknown) => setAtPath(d as never, path, value))
-          setDirty(true)
-        }}
-      />
-      {error && <div className="docker-error">{error}</div>}
-      <div className="settings-edit-actions">
-        <button
-          className="btn"
-          disabled={!dirty || saving}
-          onClick={() => {
-            setDraft(parsed)
-            setDirty(false)
-            setError('')
-          }}
-        >
-          Сбросить
-        </button>
-        <button className="btn primary" disabled={!dirty || saving} onClick={save}>
-          {saving ? '…' : 'Сохранить'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
 export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
+  const t = useT()
   const [cfg, setCfg] = useState<GlobalClaudeConfig | null>(null)
   const [section, setSection] = useState<Section>('settings')
   const [openCmd, setOpenCmd] = useState<FileContent | null>(null)
   const [mdView, setMdView] = useState<'elements' | 'text'>('elements')
-  const [settingsView, setSettingsView] = useState<'tree' | 'text'>('tree')
+  const [settingsView, setSettingsView] = useState<'form' | 'raw'>('form')
   const [hooksInstalled, setHooksInstalled] = useState<boolean | null>(null)
   const [hooksBusy, setHooksBusy] = useState(false)
+
+  const SECTIONS: { key: Section; label: string }[] = [
+    { key: 'settings', label: 'Settings' },
+    { key: 'permissions', label: 'Permissions' },
+    { key: 'hooks', label: 'Hooks' },
+    { key: 'mcp', label: 'MCP' },
+    { key: 'commands', label: t('gc.commands') },
+    { key: 'claudemd', label: 'CLAUDE.md' }
+  ]
+
+  const hookDesc = (event: string): string => (HOOK_EVENTS.includes(event) ? t(`hookEvent.${event}`) : '')
 
   useEffect(() => {
     window.cockpit.getGlobalClaude().then(setCfg)
@@ -174,14 +97,18 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
     window.cockpit.readClaudeFile(relPath).then(setOpenCmd)
   }
 
+  const reloadCfg = (): void => {
+    window.cockpit.getGlobalClaude().then(setCfg)
+  }
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal claude-modal" onClick={(e) => e.stopPropagation()}>
         <div className="claude-modal-head">
-          <h2>Global Claude</h2>
+          <h2>{t('app.globalClaude')}</h2>
           {cfg && <span className="claude-dir">{cfg.claudeDir}</span>}
           <button className="btn" onClick={onClose}>
-            Закрыть
+            {t('common.close')}
           </button>
         </div>
 
@@ -189,20 +116,18 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
           <div className="hooks-row">
             <span className={`dot ${hooksInstalled ? 'running' : 'finished'}`} />
             <span className="hooks-label">
-              Live-агенты (хуки в settings.json): {hooksInstalled ? 'включены' : 'выключены'}
+              {t('gc.hooksRow')}: {hooksInstalled ? t('gc.hooksOn') : t('gc.hooksOff')}
             </span>
             <button className="btn xs" disabled={hooksBusy} onClick={toggleHooks}>
-              {hooksBusy ? '…' : hooksInstalled ? 'Выключить' : 'Включить'}
+              {hooksBusy ? t('common.loading') : hooksInstalled ? t('common.disable') : t('common.enable')}
             </button>
           </div>
         )}
 
         {!cfg ? (
-          <div className="viewer-empty">…</div>
+          <div className="viewer-empty">{t('common.loading')}</div>
         ) : !cfg.exists ? (
-          <div className="deferred">
-            ~/.claude не найден — глобальная конфигурация Claude отсутствует.
-          </div>
+          <div className="deferred">{t('gc.notFound')}</div>
         ) : (
           <div className="claude-modal-body">
             <div className="claude-sections">
@@ -233,45 +158,50 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
                     <div className="git-section-label">settings.json</div>
                     <div className="viewer-toggle">
                       <button
-                        className={`viewer-toggle-btn ${settingsView === 'tree' ? 'active' : ''}`}
-                        onClick={() => setSettingsView('tree')}
+                        className={`viewer-toggle-btn ${settingsView === 'form' ? 'active' : ''}`}
+                        onClick={() => setSettingsView('form')}
                       >
-                        Дерево
+                        {t('gc.form')}
                       </button>
                       <button
-                        className={`viewer-toggle-btn ${settingsView === 'text' ? 'active' : ''}`}
-                        onClick={() => setSettingsView('text')}
+                        className={`viewer-toggle-btn ${settingsView === 'raw' ? 'active' : ''}`}
+                        onClick={() => setSettingsView('raw')}
                       >
-                        Текст
+                        {t('gc.raw')}
                       </button>
                     </div>
                   </div>
                   <div className="claude-path">{cfg.settingsPath}</div>
-                  <SettingsView
-                    text={cfg.settingsText}
-                    view={settingsView}
-                    editable
-                    onSaved={() => window.cockpit.getGlobalClaude().then(setCfg)}
-                  />
+                  {settingsView === 'form' ? (
+                    <ClaudeSettingsForm
+                      text={cfg.settingsText}
+                      t={t}
+                      onSave={(json) => window.cockpit.writeClaudeSettings(json).then((r) => {
+                        if (r.ok) reloadCfg()
+                        return r
+                      })}
+                    />
+                  ) : cfg.settingsText ? (
+                    <Code code={cfg.settingsText} language="json" />
+                  ) : (
+                    <div className="viewer-empty">{t('claudeForm.missing')}</div>
+                  )}
                   {cfg.localSettingsText && (
                     <>
                       <div className="claude-path">{cfg.localSettingsPath}</div>
-                      <SettingsView text={cfg.localSettingsText} view={settingsView} />
+                      <Code code={cfg.localSettingsText} language="json" />
                     </>
                   )}
                 </>
               )}
 
               {section === 'permissions' && (
-                <PermissionsEditor
-                  perms={cfg.permissions}
-                  onSaved={() => window.cockpit.getGlobalClaude().then(setCfg)}
-                />
+                <PermissionsEditor perms={cfg.permissions} onSaved={reloadCfg} />
               )}
 
               {section === 'hooks' &&
                 (cfg.hooks.length === 0 ? (
-                  <div className="viewer-empty">Хуки не настроены</div>
+                  <div className="viewer-empty">{t('gc.noHooks')}</div>
                 ) : (
                   <div className="claude-hooks">
                     {cfg.hooks.map((h, i) => (
@@ -280,9 +210,7 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
                           <span className="claude-event">{h.event}</span>
                           {h.matcher && <span className="claude-matcher">{h.matcher}</span>}
                         </div>
-                        {HOOK_EVENT_DESC[h.event] && (
-                          <div className="hook-desc">{HOOK_EVENT_DESC[h.event]}</div>
-                        )}
+                        {hookDesc(h.event) && <div className="hook-desc">{hookDesc(h.event)}</div>}
                         {h.commands.map((c, j) => (
                           <code key={j} className="claude-hook-cmd">
                             {c}
@@ -295,7 +223,7 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
 
               {section === 'mcp' &&
                 (cfg.mcpServers.length === 0 ? (
-                  <div className="viewer-empty">MCP-серверы не объявлены</div>
+                  <div className="viewer-empty">{t('gc.noMcp')}</div>
                 ) : (
                   <div className="claude-mcp">
                     {cfg.mcpServers.map((m, i) => (
@@ -313,12 +241,12 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
 
               {section === 'commands' &&
                 (cfg.commands.length === 0 ? (
-                  <div className="viewer-empty">Нет пользовательских команд</div>
+                  <div className="viewer-empty">{t('gc.noCommands')}</div>
                 ) : openCmd ? (
                   <>
                     <div className="claude-path">
                       <button className="btn" onClick={() => setOpenCmd(null)}>
-                        ← Назад
+                        ← {t('common.back')}
                       </button>
                       <span>{openCmd.path}</span>
                     </div>
@@ -349,13 +277,13 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
                           className={`viewer-toggle-btn ${mdView === 'elements' ? 'active' : ''}`}
                           onClick={() => setMdView('elements')}
                         >
-                          Элементы
+                          {t('gc.elements')}
                         </button>
                         <button
                           className={`viewer-toggle-btn ${mdView === 'text' ? 'active' : ''}`}
                           onClick={() => setMdView('text')}
                         >
-                          Текст
+                          {t('gc.text')}
                         </button>
                       </div>
                     </div>
@@ -366,7 +294,7 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
                     )}
                   </>
                 ) : (
-                  <div className="viewer-empty">Глобальный CLAUDE.md отсутствует</div>
+                  <div className="viewer-empty">{t('gc.noClaudeMd')}</div>
                 ))}
             </div>
           </div>

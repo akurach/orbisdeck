@@ -1,6 +1,7 @@
 import type { MouseEvent } from 'react'
 import type { Project, ProjectId } from '../../shared/types'
 import { moveItem, useTabReorder } from '../state/useTabReorder'
+import { useT } from '../i18n'
 
 interface Props {
   projects: Project[]
@@ -21,12 +22,13 @@ export function ProjectTabs({
   onReorder,
   badges
 }: Props): JSX.Element {
+  const t = useT()
   const dragTab = useTabReorder((from, to) =>
     onReorder(moveItem(projects, from, to).map((p) => p.id))
   )
   const close = (e: MouseEvent, p: Project): void => {
     e.stopPropagation()
-    if (confirm(`Закрыть проект «${p.name}»? Его терминалы будут остановлены.`)) onClose(p.id)
+    if (confirm(t('tabs.closeConfirm', { name: p.name }))) onClose(p.id)
   }
   return (
     <div className="project-tabs">
@@ -37,14 +39,14 @@ export function ProjectTabs({
           onClick={() => onSelect(p.id)}
           {...dragTab(i)}
         >
-          {badges.has(p.id) && <span className="project-tab-badge" title="Ждёт ответа" />}
+          {badges.has(p.id) && <span className="project-tab-badge" title={t('tabs.waiting')} />}
           <span className="project-tab-name">{p.name}</span>
-          <span className="project-tab-close" title="Закрыть проект" onClick={(e) => close(e, p)}>
+          <span className="project-tab-close" title={t('tabs.closeProject')} onClick={(e) => close(e, p)}>
             ×
           </span>
         </div>
       ))}
-      <div className="project-tab add" onClick={onAdd} title="Добавить проект">
+      <div className="project-tab add" onClick={onAdd} title={t('tabs.addProject')}>
         +
       </div>
     </div>

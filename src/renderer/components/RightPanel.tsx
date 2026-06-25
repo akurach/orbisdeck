@@ -7,6 +7,7 @@ import { ClaudePanel } from './ClaudePanel'
 import { AgentsPanel } from './AgentsPanel'
 import { DockerPanel } from './DockerPanel'
 import { moveItem, useTabReorder } from '../state/useTabReorder'
+import { useT } from '../i18n'
 
 interface Props {
   project: Project
@@ -22,13 +23,13 @@ interface Props {
 
 type Tab = 'files' | 'git' | 'claude' | 'agents' | 'docker' | 'settings'
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'files', label: 'Файлы' },
-  { key: 'git', label: 'Git' },
-  { key: 'claude', label: 'Claude' },
-  { key: 'agents', label: 'Агенты' },
-  { key: 'docker', label: 'Docker' },
-  { key: 'settings', label: 'Настройки' }
+const TABS: { key: Tab }[] = [
+  { key: 'files' },
+  { key: 'git' },
+  { key: 'claude' },
+  { key: 'agents' },
+  { key: 'docker' },
+  { key: 'settings' }
 ]
 
 const ORDER_KEY = 'orbisdeck:right-tab-order'
@@ -56,8 +57,18 @@ export function RightPanel({
   onCollapse,
   onSwapSide
 }: Props): JSX.Element {
+  const t = useT()
   const [tab, setTab] = useState<Tab>('settings')
   const [order, setOrder] = useState<Tab[]>(loadOrder)
+
+  const LABELS: Record<Tab, string> = {
+    files: t('right.tabFiles'),
+    git: 'Git',
+    claude: 'Claude',
+    agents: t('right.tabAgents'),
+    docker: 'Docker',
+    settings: t('right.tabSettings')
+  }
 
   const dragTab = useTabReorder((from, to) => {
     setOrder((prev) => {
@@ -71,7 +82,7 @@ export function RightPanel({
     })
   })
 
-  const labelOf = (k: Tab): string => TABS.find((t) => t.key === k)!.label
+  const labelOf = (k: Tab): string => LABELS[k]
 
   return (
     <aside className="right-panel" style={{ width }}>
@@ -86,10 +97,10 @@ export function RightPanel({
             {labelOf(key)}
           </div>
         ))}
-        <button className="panel-collapse" title="Поменять сторону панели" onClick={onSwapSide}>
+        <button className="panel-collapse" title={t('right.swapSide')} onClick={onSwapSide}>
           ⇄
         </button>
-        <button className="panel-collapse" title="Свернуть панель" onClick={onCollapse}>
+        <button className="panel-collapse" title={t('right.collapsePanel')} onClick={onCollapse}>
           ›
         </button>
       </div>

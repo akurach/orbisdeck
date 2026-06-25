@@ -1,23 +1,24 @@
 import { useEffect, useState } from 'react'
 import type { AgentInfo, ProjectId, TerminalInfo } from '../../shared/types'
+import { useT, type TFn } from '../i18n'
 
 interface Props {
   projectId: ProjectId
 }
 
-function fmtDur(ms: number): string {
+function fmtDur(t: TFn, ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000))
-  if (s < 60) return `${s}с`
+  if (s < 60) return `${s}${t('agents.unitSec')}`
   const m = Math.floor(s / 60)
-  if (m < 60) return `${m}м ${s % 60}с`
-  return `${Math.floor(m / 60)}ч ${m % 60}м`
+  if (m < 60) return `${m}${t('agents.unitMin')} ${s % 60}${t('agents.unitSec')}`
+  return `${Math.floor(m / 60)}${t('agents.unitHour')} ${m % 60}${t('agents.unitMin')}`
 }
 
 /** Running → ticking elapsed; done → frozen duration (end − start). */
-function agentTime(a: AgentInfo): string {
+function agentTime(t: TFn, a: AgentInfo): string {
   if (!a.startedAt) return ''
-  if (a.status === 'running') return fmtDur(Date.now() - a.startedAt)
-  if (a.endedAt > a.startedAt) return fmtDur(a.endedAt - a.startedAt)
+  if (a.status === 'running') return fmtDur(t, Date.now() - a.startedAt)
+  if (a.endedAt > a.startedAt) return fmtDur(t, a.endedAt - a.startedAt)
   return ''
 }
 
@@ -25,6 +26,7 @@ function agentTime(a: AgentInfo): string {
 //  - Claude sub-agents from the live session transcript (Task/Agent tool_use).
 //  - Cockpit-spawned terminal processes (PID/cwd/start from node-pty).
 export function AgentsPanel({ projectId }: Props): JSX.Element {
+  const t = useT()
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [procs, setProcs] = useState<TerminalInfo[]>([])
   const [hooksInstalled, setHooksInstalled] = useState<boolean | null>(null)
@@ -60,20 +62,19 @@ export function AgentsPanel({ projectId }: Props): JSX.Element {
     <div className="agents-panel">
       {hooksInstalled === false && (
         <div className="agent-hint">
-          Live-агенты выключены — без хуков агенты видны с задержкой (по транскрипту).
+          {t('agents.liveDisabled')}
           <button className="btn xs" disabled={installing} onClick={enableLive}>
-            {installing ? '…' : 'Включить live'}
+            {installing ? t('common.loading') : t('agents.enableLive')}
           </button>
         </div>
       )}
       <div className="git-section-label">
-        Суб-агенты Claude{running > 0 ? ` · ${running} активных` : ''}
+        {t('agents.subAgentsTitle')}
+        {running > 0 ? t('agents.activeCount', { count: running }) : ''}
         {hooksInstalled ? ' · live' : ''}
       </div>
       {agents.length === 0 ? (
-        <div className="deferred">
-          Нет суб-агентов в активной сессии. Появятся, когда Claude запустит Task/агентов.
-        </div>
+        <div className="deferred">{t('agents.noSubAgents')}</div>
       ) : (
         agents.map((a) => (
           <div key={a.id} className="agent-card">
@@ -83,32 +84,36 @@ export function AgentsPanel({ projectId }: Props): JSX.Element {
               />
               <span className="agent-title">{a.type}</span>
               <span className={`agent-status ${a.status}`}>
-                {a.status === 'running' ? 'Running' : a.status === 'interrupted' ? 'Оборван' : 'Done'}
+                {a.status === 'running'
+                  ? 'Running'
+                  : a.status === 'interrupted'
+                    ? t('agents.interrupted')
+                    : 'Done'}
               </span>
             </div>
             {a.description && <div className="agent-cmd">{a.description}</div>}
-            {agentTime(a) && <div className="agent-meta">{agentTime(a)}</div>}
+            {agentTime(t, a) && <div className="agent-meta">{agentTime(t, a)}</div>}
           </div>
         ))
       )}
 
-      <div className="git-section-label agents-procs-label">Процессы (терминалы)</div>
+      <div className="git-section-label agents-procs-label">{t('agents.processesLabel')}</div>
       {procs.length === 0 ? (
-        <div className="deferred">Нет запущенных терминалов.</div>
+        <div className="deferred">{t('agents.noTerminals')}</div>
       ) : (
-        procs.map((t) => (
-          <div key={t.id} className="agent-card">
+        procs.map((term) => (
+          <div key={term.id} className="agent-card">
             <div className="agent-row">
-              <span className={`dot ${t.alive ? 'running' : 'finished'}`} />
-              <span className="agent-title">{t.title}</span>
-              <span className={`agent-status ${t.alive ? 'running' : 'finished'}`}>
-                {t.alive ? 'Running' : 'Finished'}
+              <span className={`dot ${term.alive ? 'running' : 'finished'}`} />
+              <span className="agent-title">{term.title}</span>
+              <span className={`agent-status ${term.alive ? 'running' : 'finished'}`}>
+                {term.alive ? 'Running' : 'Finished'}
               </span>
             </div>
-            <div className="agent-cmd">{t.command}</div>
+            <div className="agent-cmd">{term.command}</div>
             <div className="agent-meta">
-              <span>PID {t.pid || '—'}</span>
-              <span>{t.startedAt ? fmtDur(Date.now() - t.startedAt) : ''}</span>
+              <span>PID {term.pid || '—'}</span>
+              <span>{term.startedAt ? fmtDur(t, Date.now() - term.startedAt) : ''}</span>
             </div>
           </div>
         ))

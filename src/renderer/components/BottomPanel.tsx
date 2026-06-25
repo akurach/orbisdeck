@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ProjectId } from '../../shared/types'
+import { useT } from '../i18n'
 import { FileViewer } from './FileViewer'
 import { DiffViewer } from './DiffViewer'
 import { NotesPanel } from './NotesPanel'
@@ -14,12 +15,6 @@ interface Props {
 
 type Tab = 'preview' | 'diff' | 'notes'
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'preview', label: 'Preview' },
-  { key: 'diff', label: 'Diff' },
-  { key: 'notes', label: 'Заметки' }
-]
-
 export function BottomPanel({
   projectId,
   selectedPath,
@@ -27,7 +22,14 @@ export function BottomPanel({
   onCollapse,
   onSwapVertical
 }: Props): JSX.Element {
+  const t = useT()
   const [tab, setTab] = useState<Tab>('preview')
+
+  const TABS: { key: Tab; label: string }[] = [
+    { key: 'preview', label: 'Preview' },
+    { key: 'diff', label: 'Diff' },
+    { key: 'notes', label: t('bottom.notes') }
+  ]
 
   return (
     <section className="bottom-panel" style={{ height }}>
@@ -44,12 +46,12 @@ export function BottomPanel({
         {selectedPath && <span className="bottom-current">{selectedPath}</span>}
         <button
           className="panel-collapse bottom-swap"
-          title="Поменять местами с консолью (вверх/вниз)"
+          title={t('bottom.swapWithConsole')}
           onClick={onSwapVertical}
         >
           ⇅
         </button>
-        <button className="panel-collapse" title="Свернуть панель" onClick={onCollapse}>
+        <button className="panel-collapse" title={t('bottom.collapsePanel')} onClick={onCollapse}>
           ⌄
         </button>
       </div>

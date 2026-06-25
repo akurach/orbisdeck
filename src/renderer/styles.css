@@ -103,6 +103,15 @@ body {
 
 .topbar-right {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.icon-btn {
+  padding: 4px 8px;
+  font-size: 14px;
+  line-height: 1;
 }
 
 .muted {
@@ -753,6 +762,7 @@ body {
 }
 
 .field input,
+.field select,
 .field textarea {
   font-family: var(--mono);
   font-size: 12px;
@@ -765,14 +775,48 @@ body {
   user-select: text;
 }
 
+.field select {
+  font-family: var(--sans);
+}
+
 .field textarea {
   resize: vertical;
   line-height: 1.5;
 }
 
 .field input:focus,
+.field select:focus,
 .field textarea:focus {
   border-color: var(--accent);
+}
+
+/* Claude settings form (Global Claude → Settings) */
+.claude-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0 8px;
+}
+.claude-form-field {
+  gap: 4px;
+}
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.toggle-row input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+}
+.claude-form-raw {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
 }
 
 .field-hint {
@@ -1697,4 +1741,81 @@ body {
 
 .claude-panel .claude-code {
   max-height: none;
+}
+
+/* App settings modal (accent + language + about) */
+.app-settings-modal {
+  width: 460px;
+  gap: 0;
+  padding: 0;
+}
+.app-settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.app-settings-head h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+.app-settings-body {
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.app-settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.accent-swatches {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.accent-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  outline: 1px solid var(--border);
+}
+.accent-swatch.active {
+  border-color: var(--text);
+}
+.accent-custom {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-elev-2);
+  cursor: pointer;
+}
+.lang-toggle {
+  display: flex;
+  gap: 6px;
+}
+.about-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.about-brand {
+  font-size: 14px;
+  font-weight: 600;
+}
+.about-version {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.about-tagline {
+  font-size: 12px;
+  color: var(--text-faint);
 }

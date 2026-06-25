@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { DetectedSettings, ProjectSettings } from '../../shared/types'
 import { emptySettings } from '../state/useCockpit'
+import { useT } from '../i18n'
 
 interface Props {
   onCancel: () => void
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export function AddProjectModal({ onCancel, onCreate }: Props): JSX.Element {
+  const t = useT()
   const [name, setName] = useState('')
   const [path, setPath] = useState('')
   const [detected, setDetected] = useState<DetectedSettings | null>(null)
@@ -50,9 +52,9 @@ export function AddProjectModal({ onCancel, onCreate }: Props): JSX.Element {
   return (
     <div className="modal-backdrop" onClick={onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Новый проект</h2>
+        <h2>{t('addProject.title')}</h2>
         <div className="field">
-          <label>Имя</label>
+          <label>{t('addProject.nameLabel')}</label>
           <input
             autoFocus
             value={name}
@@ -62,35 +64,35 @@ export function AddProjectModal({ onCancel, onCreate }: Props): JSX.Element {
           />
         </div>
         <div className="field">
-          <label>Папка проекта</label>
+          <label>{t('addProject.folderLabel')}</label>
           <div className="path-pick">
             <button className="btn" onClick={pickFolder}>
-              Выбрать папку…
+              {t('addProject.pickFolder')}
             </button>
             <span className={`path-value ${path ? '' : 'empty'}`} title={path}>
-              {path || 'папка не выбрана'}
+              {path || t('addProject.noFolder')}
             </span>
           </div>
         </div>
         {detected && detected.sources.length > 0 && (
           <div className="detected">
             <div className="detected-head">
-              Обнаружено: {detected.sources.join(', ')}
+              {t('addProject.detected', { sources: detected.sources.join(', ') })}
             </div>
             <ul className="detected-list">
-              {detected.runCommand && <li>Запуск: <code>{detected.runCommand}</code></li>}
-              {detected.testCommand && <li>Тесты: <code>{detected.testCommand}</code></li>}
-              {detected.buildCommand && <li>Сборка: <code>{detected.buildCommand}</code></li>}
+              {detected.runCommand && <li>{t('addProject.runLabel')} <code>{detected.runCommand}</code></li>}
+              {detected.testCommand && <li>{t('addProject.testLabel')} <code>{detected.testCommand}</code></li>}
+              {detected.buildCommand && <li>{t('addProject.buildLabel')} <code>{detected.buildCommand}</code></li>}
             </ul>
-            <div className="detected-note">Можно изменить в настройках после создания.</div>
+            <div className="detected-note">{t('addProject.detectedNote')}</div>
           </div>
         )}
         <div className="modal-actions">
           <button className="btn" onClick={onCancel}>
-            Отмена
+            {t('common.cancel')}
           </button>
           <button className="btn primary" disabled={!canCreate} onClick={create}>
-            Создать
+            {t('addProject.create')}
           </button>
         </div>
       </div>

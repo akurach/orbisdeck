@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { ClaudePermissions } from '../../shared/types'
+import { useT } from '../i18n'
 
 type Group = 'allow' | 'ask' | 'deny'
 
-const GROUPS: { key: Group; label: string; hint: string }[] = [
-  { key: 'allow', label: 'allow', hint: 'Claude делает это БЕЗ спроса (напр. Read, Bash(git status)).' },
-  { key: 'ask', label: 'ask', hint: 'Требует подтверждения каждый раз.' },
-  { key: 'deny', label: 'deny', hint: 'Запрещено полностью (напр. Bash(rm -rf*), Read(./.env)).' }
-]
+const GROUP_KEYS: Group[] = ['allow', 'ask', 'deny']
 
 export function PermissionsEditor({
   perms,
@@ -16,6 +13,7 @@ export function PermissionsEditor({
   perms: ClaudePermissions
   onSaved: () => void
 }): JSX.Element {
+  const t = useT()
   const [allow, setAllow] = useState<string[]>(perms.allow)
   const [ask, setAsk] = useState<string[]>(perms.ask)
   const [deny, setDeny] = useState<string[]>(perms.deny)
@@ -68,19 +66,18 @@ export function PermissionsEditor({
   return (
     <div className="claude-perms">
       <p className="perms-explainer">
-        Permissions — политика доверия агенту: что Claude может делать в виде паттернов{' '}
-        <code>Tool(arg)</code>.
+        {t('perms.explainerBefore')} <code>Tool(arg)</code>.
       </p>
-      {GROUPS.map(({ key, label, hint }) => {
+      {GROUP_KEYS.map((key) => {
         const [list] = lists[key]
         return (
           <div key={key} className="claude-perm-group">
-            <div className={`git-section-label perm-${key}`}>{label}</div>
-            <div className="perm-hint">{hint}</div>
+            <div className={`git-section-label perm-${key}`}>{key}</div>
+            <div className="perm-hint">{t(`perms.hint_${key}`)}</div>
             {list.map((rule) => (
               <div key={rule} className="claude-rule">
                 <span className="claude-rule-text">{rule}</span>
-                <span className="claude-rule-x" title="Удалить" onClick={() => remove(key, rule)}>
+                <span className="claude-rule-x" title={t('common.remove')} onClick={() => remove(key, rule)}>
                   ×
                 </span>
               </div>
@@ -103,7 +100,7 @@ export function PermissionsEditor({
       {error && <div className="docker-error">{error}</div>}
       <div className="settings-edit-actions">
         <button className="btn primary" disabled={!dirty || saving} onClick={save}>
-          {saving ? '…' : 'Сохранить permissions'}
+          {saving ? t('common.loading') : t('perms.savePermissions')}
         </button>
       </div>
     </div>

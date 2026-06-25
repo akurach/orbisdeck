@@ -4,6 +4,7 @@ import 'highlight.js/styles/github-dark.css'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import type { FileContent, ProjectId } from '../../shared/types'
+import { useT } from '../i18n'
 
 interface Props {
   projectId: ProjectId
@@ -19,6 +20,7 @@ function formatBytes(n: number): string {
 }
 
 export function FileViewer({ projectId, path }: Props): JSX.Element {
+  const t = useT()
   const [file, setFile] = useState<FileContent | null>(null)
   const [loading, setLoading] = useState(false)
   const [mdView, setMdView] = useState<MdView>('rendered')
@@ -66,15 +68,15 @@ export function FileViewer({ projectId, path }: Props): JSX.Element {
     }
   }, [isMarkdown, file])
 
-  if (!path) return <div className="viewer-empty">Выберите файл в дереве</div>
-  if (loading) return <div className="viewer-empty">…</div>
+  if (!path) return <div className="viewer-empty">{t('viewer.selectFile')}</div>
+  if (loading) return <div className="viewer-empty">{t('common.loading')}</div>
   if (!file) return <div className="viewer-empty">—</div>
 
   if (file.image) {
     if (file.image.tooLarge) {
       return (
         <div className="viewer-empty">
-          Изображение слишком большое для предпросмотра ({formatBytes(file.image.bytes)})
+          {t('viewer.imageTooLarge', { size: formatBytes(file.image.bytes) })}
         </div>
       )
     }
@@ -93,7 +95,7 @@ export function FileViewer({ projectId, path }: Props): JSX.Element {
     )
   }
 
-  if (file.binary) return <div className="viewer-empty">Бинарный файл — просмотр недоступен</div>
+  if (file.binary) return <div className="viewer-empty">{t('viewer.binaryFile')}</div>
 
   const lineCount = file.content.split('\n').length
 
@@ -111,20 +113,20 @@ export function FileViewer({ projectId, path }: Props): JSX.Element {
     <div className="file-viewer">
       <div className="viewer-head">
         <span className="viewer-path">{file.path}</span>
-        {file.truncated && <span className="viewer-warn">обрезано (большой файл)</span>}
+        {file.truncated && <span className="viewer-warn">{t('viewer.truncated')}</span>}
         {isMarkdown && (
           <div className="viewer-toggle" role="tablist">
             <button
               className={`viewer-toggle-btn ${mdView === 'rendered' ? 'active' : ''}`}
               onClick={() => setMdView('rendered')}
             >
-              Просмотр
+              {t('viewer.viewRendered')}
             </button>
             <button
               className={`viewer-toggle-btn ${mdView === 'code' ? 'active' : ''}`}
               onClick={() => setMdView('code')}
             >
-              Код
+              {t('viewer.viewCode')}
             </button>
           </div>
         )}

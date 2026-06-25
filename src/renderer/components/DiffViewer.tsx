@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { DiffResult, ProjectId } from '../../shared/types'
+import { useT } from '../i18n'
 
 interface Props {
   projectId: ProjectId
@@ -16,6 +17,7 @@ function lineClass(line: string): string {
 }
 
 export function DiffViewer({ projectId, path }: Props): JSX.Element {
+  const t = useT()
   const [diff, setDiff] = useState<DiffResult | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -32,18 +34,18 @@ export function DiffViewer({ projectId, path }: Props): JSX.Element {
     }
   }, [projectId, path])
 
-  if (loading) return <div className="viewer-empty">…</div>
+  if (loading) return <div className="viewer-empty">{t('common.loading')}</div>
   if (!diff) return <div className="viewer-empty">—</div>
-  if (diff.binary) return <div className="viewer-empty">Бинарный файл — diff недоступен</div>
-  if (!diff.text.trim()) return <div className="viewer-empty">Нет изменений</div>
+  if (diff.binary) return <div className="viewer-empty">{t('diff.binaryUnavailable')}</div>
+  if (!diff.text.trim()) return <div className="viewer-empty">{t('diff.noChanges')}</div>
 
   const lines = diff.text.split('\n')
 
   return (
     <div className="diff-viewer">
       <div className="viewer-head">
-        <span className="viewer-path">{path || 'весь репозиторий'}</span>
-        {diff.truncated && <span className="viewer-warn">diff обрезан — открой в редакторе</span>}
+        <span className="viewer-path">{path || t('diff.wholeRepo')}</span>
+        {diff.truncated && <span className="viewer-warn">{t('diff.truncated')}</span>}
       </div>
       <pre className="diff-body">
         {lines.map((line, i) => (
