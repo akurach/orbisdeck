@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { Project, TerminalId, TerminalInfo } from '../../shared/types'
+import type { Project, RunTarget, TerminalId, TerminalInfo } from '../../shared/types'
 import { TerminalView } from './TerminalView'
 import { moveItem, useTabReorder } from '../state/useTabReorder'
+import { onSpawnRequest } from '../state/terminalBus'
 import { useT } from '../i18n'
 
 interface Props {
@@ -56,6 +57,14 @@ export function TerminalPanel({ project }: Props): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id])
 
+  // Open terminals requested by sibling panels (e.g. Docker live logs) for this project.
+  useEffect(() => {
+    return onSpawnRequest((req) => {
+      if (req.projectId !== project.id) return
+      spawn({ title: req.title, command: req.command })
+    })
+  }, [project.id, spawn])
+
   // Drop tabs whose pty has exited.
   useEffect(() => {
     const off = window.cockpit.onTerminalExit((e) => {
@@ -84,6 +93,14 @@ export function TerminalPanel({ project }: Props): JSX.Element {
   const runDisabled = !settings.runCommand
   const testDisabled = !settings.testCommand
   const buildDisabled = !settings.buildCommand
+
+  // Named user targets → one button each. preLaunch is chained with `&&` so a failed
+  // pre-step aborts and its output stays visible in the same tab.
+  const runTargets: RunTarget[] = (settings.runTargets ?? []).filter((rt) => rt.name && rt.command)
+  const spawnTarget = (rt: RunTarget): void => {
+    const command = rt.preLaunch ? `${rt.preLaunch} && ${rt.command}` : rt.command
+    spawn({ title: rt.name, command })
+  }
 
   return (
     <section className="terminal-panel">
@@ -115,6 +132,16 @@ export function TerminalPanel({ project }: Props): JSX.Element {
           >
             Build
           </button>
+          {runTargets.map((rt, i) => (
+            <button
+              key={`${rt.name}-${i}`}
+              className="btn"
+              title={rt.preLaunch ? `${rt.preLaunch} && ${rt.command}` : rt.command}
+              onClick={() => spawnTarget(rt)}
+            >
+              {rt.name}
+            </button>
+          ))}
         </div>
       </header>
 

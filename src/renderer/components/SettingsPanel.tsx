@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Project, ProjectSettings } from '../../shared/types'
+import type { Project, ProjectSettings, RunTarget } from '../../shared/types'
 import { useT } from '../i18n'
 
 interface Props {
@@ -10,7 +10,10 @@ interface Props {
 
 // Stable field identifiers; label/placeholder/hint are resolved via t() at render time
 // (keyed `settings.<field>.label|placeholder|hint`).
-const FIELDS: (keyof ProjectSettings)[] = [
+// Only the plain string-valued fields render as a single input here. Structured fields
+// (runTargets) have their own editor below, so they're excluded from this list.
+type StringField = Exclude<keyof ProjectSettings, 'runTargets'>
+const FIELDS: StringField[] = [
   'path',
   'runCommand',
   'testCommand',
@@ -37,6 +40,16 @@ export function SettingsPanel({ project, onSave, onRemove }: Props): JSX.Element
     setSettings((s) => ({ ...s, [key]: value }))
     setDirty(true)
   }
+
+  const targets: RunTarget[] = settings.runTargets ?? []
+  const setTargets = (next: RunTarget[]): void => {
+    setSettings((s) => ({ ...s, runTargets: next }))
+    setDirty(true)
+  }
+  const addTarget = (): void => setTargets([...targets, { name: '', command: '' }])
+  const removeTarget = (i: number): void => setTargets(targets.filter((_, j) => j !== i))
+  const editTarget = (i: number, key: keyof RunTarget, value: string): void =>
+    setTargets(targets.map((tg, j) => (j === i ? { ...tg, [key]: value } : tg)))
 
   const pickFolder = async (): Promise<void> => {
     const chosen = await window.cockpit.pickDirectory()
@@ -113,6 +126,43 @@ export function SettingsPanel({ project, onSave, onRemove }: Props): JSX.Element
           onChange={(e) => edit('env', e.target.value)}
         />
         <span className="field-hint">{t('settings.envHint')}</span>
+      </div>
+      <div className="field">
+        <label>{t('settings.runTargets.label')}</label>
+        <span className="field-hint">{t('settings.runTargets.hint')}</span>
+        <div className="run-targets">
+          {targets.map((tg, i) => (
+            <div className="run-target-row" key={i}>
+              <input
+                className="run-target-name"
+                value={tg.name}
+                placeholder={t('settings.runTargets.namePlaceholder')}
+                spellCheck={false}
+                onChange={(e) => editTarget(i, 'name', e.target.value)}
+              />
+              <input
+                className="run-target-cmd"
+                value={tg.command}
+                placeholder={t('settings.runTargets.commandPlaceholder')}
+                spellCheck={false}
+                onChange={(e) => editTarget(i, 'command', e.target.value)}
+              />
+              <input
+                className="run-target-pre"
+                value={tg.preLaunch ?? ''}
+                placeholder={t('settings.runTargets.preLaunchPlaceholder')}
+                spellCheck={false}
+                onChange={(e) => editTarget(i, 'preLaunch', e.target.value)}
+              />
+              <button className="btn xs danger" onClick={() => removeTarget(i)} title={t('common.remove')}>
+                ×
+              </button>
+            </div>
+          ))}
+          <button className="btn xs" onClick={addTarget}>
+            + {t('settings.runTargets.add')}
+          </button>
+        </div>
       </div>
       <div className="settings-actions">
         <button className="btn" disabled={!settings.path} onClick={detect} title={t('settings.detectTitle')}>

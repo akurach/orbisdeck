@@ -1,17 +1,128 @@
 // Global ~/.claude config: read (settings/permissions/hooks/MCP/commands/CLAUDE.md)
 // and guarded writes (settings.json, permissions). Mirror of src/main/claude.ts.
 
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
 use crate::types::{
-    ClaudeCommand, ClaudeHook, ClaudeMcpServer, ClaudePermissions, FileContent, GlobalClaudeConfig,
-    OpResult,
+    ClaudeChainFile, ClaudeCommand, ClaudeHook, ClaudeMcpServer, ClaudePermissions, FileContent,
+    GlobalClaudeConfig, OpResult,
 };
 
 const CAP: u64 = 512 * 1024;
+
+// --- M6: project CLAUDE.md @import chain (context inspector, read-only) ---
+
+const CHAIN_MAX_FILES: usize = 40;
+const CHAIN_MAX_DEPTH: u32 = 5;
+const CHAIN_READ_CAP: usize = 256 * 1024;
+
+/// Resolve the project CLAUDE.md and its `@import` tree into an ordered, depth-tagged list.
+/// Read-only; caps file count/depth/size and guards against cycles. Only imports that resolve
+/// to an existing file are followed (avoids false positives like email @handles).
+pub fn claude_chain(project_path: &str, claude_md_rel: &str) -> Vec<ClaudeChainFile> {
+    if project_path.is_empty() {
+        return vec![];
+    }
+    let root = Path::new(project_path);
+    let rel = if claude_md_rel.trim().is_empty() {
+        "CLAUDE.md"
+    } else {
+        claude_md_rel.trim()
+    };
+    let start = root.join(rel);
+    let mut out: Vec<ClaudeChainFile> = vec![];
+    let mut visited: HashSet<PathBuf> = HashSet::new();
+    chain_walk(&start, rel.to_string(), 0, &mut out, &mut visited);
+    out
+}
+
+fn chain_walk(
+    path: &Path,
+    display: String,
+    depth: u32,
+    out: &mut Vec<ClaudeChainFile>,
+    visited: &mut HashSet<PathBuf>,
+) {
+    if out.len() >= CHAIN_MAX_FILES || depth > CHAIN_MAX_DEPTH {
+        return;
+    }
+    let canon = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    if !visited.insert(canon) {
+        return;
+    }
+    match fs::read(path) {
+        Ok(data) => {
+            let truncated = data.len() > CHAIN_READ_CAP;
+            let slice = if truncated { &data[..CHAIN_READ_CAP] } else { &data[..] };
+            let content = String::from_utf8_lossy(slice).to_string();
+            out.push(ClaudeChainFile {
+                path: display,
+                content: content.clone(),
+                depth,
+                missing: false,
+                truncated,
+            });
+            let dir = path.parent().unwrap_or_else(|| Path::new("."));
+            for token in find_imports(&content) {
+                let resolved = resolve_import(&token, dir);
+                if resolved.is_file() {
+                    chain_walk(&resolved, token, depth + 1, out, visited);
+                }
+            }
+        }
+        Err(_) => out.push(ClaudeChainFile {
+            path: display,
+            content: String::new(),
+            depth,
+            missing: true,
+            truncated: false,
+        }),
+    }
+}
+
+/// Find `@path` import tokens: an `@` at line start or after whitespace, followed by a
+/// non-whitespace path. Trailing punctuation is trimmed.
+fn find_imports(text: &str) -> Vec<String> {
+    let mut out = vec![];
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'@' && (i == 0 || bytes[i - 1].is_ascii_whitespace()) {
+            let start = i + 1;
+            let mut j = start;
+            while j < bytes.len() && !bytes[j].is_ascii_whitespace() {
+                j += 1;
+            }
+            let raw = text[start..j].trim_end_matches(|c: char| ",.;:)\"'".contains(c));
+            // Only treat path-like tokens as imports (must contain a slash or a dot).
+            if !raw.is_empty() && (raw.contains('/') || raw.contains('.')) {
+                out.push(raw.to_string());
+            }
+            i = j;
+        } else {
+            i += 1;
+        }
+    }
+    out
+}
+
+fn resolve_import(token: &str, dir: &Path) -> PathBuf {
+    if let Some(rest) = token.strip_prefix("~/") {
+        if let Some(home) = dirs::home_dir() {
+            return home.join(rest);
+        }
+    }
+    let p = Path::new(token);
+    if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        dir.join(token)
+    }
+}
 
 fn claude_dir() -> PathBuf {
     let mut p = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));

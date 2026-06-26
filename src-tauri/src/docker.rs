@@ -133,24 +133,3 @@ pub fn action(root: &str, action: &str, service: Option<String>) -> OpResult {
         },
     }
 }
-
-pub fn logs(root: &str, service: Option<String>) -> String {
-    if root.is_empty() || !has_compose(root) {
-        return String::new();
-    }
-    let mut args = vec![
-        "compose".to_string(),
-        "logs".to_string(),
-        "--tail".to_string(),
-        "200".to_string(),
-        "--no-color".to_string(),
-    ];
-    if let Some(svc) = service {
-        args.push(svc);
-    }
-    let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-    match docker(root, &refs) {
-        Ok(out) => out,
-        Err((_, msg)) => msg,
-    }
-}

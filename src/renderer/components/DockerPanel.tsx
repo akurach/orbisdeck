@@ -1,24 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { DockerAction, DockerStatus, ProjectId } from '../../shared/types'
-import { LogsModal } from './LogsModal'
+import { requestSpawn } from '../state/terminalBus'
 import { useT } from '../i18n'
 
 interface Props {
   projectId: ProjectId
 }
 
-interface LogsState {
-  service?: string
-  title: string
-  text: string
-  loading: boolean
-}
-
 export function DockerPanel({ projectId }: Props): JSX.Element {
   const t = useT()
   const [status, setStatus] = useState<DockerStatus | null>(null)
   const [busy, setBusy] = useState<string | null>(null) // `${action}:${service||'*'}`
-  const [logs, setLogs] = useState<LogsState | null>(null)
 
   const refresh = useCallback(() => {
     window.cockpit.getDockerStatus(projectId).then(setStatus)
@@ -37,14 +29,16 @@ export function DockerPanel({ projectId }: Props): JSX.Element {
     refresh()
   }
 
+  // Live-tail logs: open a real terminal tab streaming `docker compose logs -f`.
   const openLogs = useCallback(
-    async (service?: string): Promise<void> => {
-      const title = service ? t('docker.logsTitleService', { service }) : t('docker.logsTitleAll')
-      setLogs({ service, title, text: '', loading: true })
-      const text = await window.cockpit.getDockerLogs(projectId, service)
-      setLogs({ service, title, text, loading: false })
+    (service?: string): void => {
+      requestSpawn({
+        projectId,
+        title: service ? `logs:${service}` : 'logs',
+        command: service ? `docker compose logs -f ${service}` : 'docker compose logs -f'
+      })
     },
-    [projectId, t]
+    [projectId]
   )
 
   if (!status) return <div className="deferred">{t('common.loading')}</div>
@@ -110,16 +104,6 @@ export function DockerPanel({ projectId }: Props): JSX.Element {
             )
           })}
         </div>
-      )}
-
-      {logs && (
-        <LogsModal
-          title={logs.title}
-          text={logs.text}
-          loading={logs.loading}
-          onRefresh={() => openLogs(logs.service)}
-          onClose={() => setLogs(null)}
-        />
       )}
     </div>
   )

@@ -7,6 +7,16 @@ export type ProjectId = string
 /** Stable terminal identity within a project. */
 export type TerminalId = string
 
+/** A named, user-defined launch command surfaced as its own button in the terminal header. */
+export interface RunTarget {
+  /** Button label, e.g. "dev", "lint", "migrate". */
+  name: string
+  /** Command spawned into a fresh terminal tab. */
+  command: string
+  /** Optional command run before `command` in the same tab (chained with `&&`), e.g. "npm ci". */
+  preLaunch?: string
+}
+
 export interface ProjectSettings {
   /** Absolute path to the project directory. */
   path: string
@@ -27,6 +37,8 @@ export interface ProjectSettings {
   env?: string
   /** Working subdirectory (relative to path) terminals start in. Empty = project root. */
   cwdSubdir?: string
+  /** Extra named launch commands, each rendered as a button next to Run/Tests/Build. */
+  runTargets?: RunTarget[]
 }
 
 export interface Project {
@@ -249,6 +261,20 @@ export interface ClaudePermissions {
   allow: string[]
   deny: string[]
   ask: string[]
+}
+
+/** One file in a project's CLAUDE.md @import chain (the assembled-context inspector). */
+export interface ClaudeChainFile {
+  /** display path — relative for the root file, the literal @import token for nested ones */
+  path: string
+  /** file text (capped); '' when missing */
+  content: string
+  /** 0 = the project CLAUDE.md, >0 = nested via @import (drives indent) */
+  depth: number
+  /** referenced via @import but not found on disk */
+  missing: boolean
+  /** content was size-capped */
+  truncated: boolean
 }
 
 /** Read-only snapshot of the global Claude install (~/.claude). */

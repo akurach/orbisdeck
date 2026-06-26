@@ -3,6 +3,7 @@ import hljs from 'highlight.js/lib/common'
 import 'highlight.js/styles/github-dark.css'
 import type { FileContent, Project } from '../../shared/types'
 import { ClaudeElements } from './ClaudeElements'
+import { ClaudeContext } from './ClaudeContext'
 import { useT } from '../i18n'
 
 interface Props {
@@ -10,7 +11,7 @@ interface Props {
   onOpenGlobal: () => void
 }
 
-type View = 'elements' | 'text'
+type View = 'elements' | 'text' | 'context'
 
 export function ClaudePanel({ project, onOpenGlobal }: Props): JSX.Element {
   const t = useT()
@@ -49,26 +50,32 @@ export function ClaudePanel({ project, onOpenGlobal }: Props): JSX.Element {
 
       <div className="claude-head">
         <div className="git-section-label">Project CLAUDE.md</div>
-        {file?.content && (
-          <div className="viewer-toggle">
-            <button
-              className={`viewer-toggle-btn ${view === 'elements' ? 'active' : ''}`}
-              onClick={() => setView('elements')}
-            >
-              {t('claude.elements')}
-            </button>
-            <button
-              className={`viewer-toggle-btn ${view === 'text' ? 'active' : ''}`}
-              onClick={() => setView('text')}
-            >
-              {t('claude.text')}
-            </button>
-          </div>
-        )}
+        <div className="viewer-toggle">
+          <button
+            className={`viewer-toggle-btn ${view === 'elements' ? 'active' : ''}`}
+            onClick={() => setView('elements')}
+          >
+            {t('claude.elements')}
+          </button>
+          <button
+            className={`viewer-toggle-btn ${view === 'text' ? 'active' : ''}`}
+            onClick={() => setView('text')}
+          >
+            {t('claude.text')}
+          </button>
+          <button
+            className={`viewer-toggle-btn ${view === 'context' ? 'active' : ''}`}
+            onClick={() => setView('context')}
+          >
+            {t('claude.context')}
+          </button>
+        </div>
       </div>
-      <div className="claude-path">{relPath}</div>
+      {view !== 'context' && <div className="claude-path">{relPath}</div>}
 
-      {loading ? (
+      {view === 'context' ? (
+        <ClaudeContext projectId={project.id} onOpenGlobal={onOpenGlobal} />
+      ) : loading ? (
         <div className="viewer-empty">{t('common.loading')}</div>
       ) : !file?.content ? (
         <div className="viewer-empty">{t('claude.notFound')}</div>

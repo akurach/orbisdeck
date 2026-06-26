@@ -22,9 +22,16 @@ use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::Serialize;
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_notification::NotificationExt;
 
 use store::Store;
 use types::*;
+
+// Set when we raise a "Claude awaits input" notification (projectId, ts). Consumed the next
+// time the window gains focus (i.e. the user clicked the notification) to jump to that project.
+static PENDING_JUMP: Mutex<Option<(String, u64)>> = Mutex::new(None);
+// How long a pending jump stays valid after the notification fires.
+const JUMP_TTL_MS: u64 = 20_000;
 
 fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
@@ -354,10 +361,6 @@ fn get_docker_status(store: State<Store>, project_id: String) -> DockerStatus {
 fn docker_action(store: State<Store>, project_id: String, action: String, service: Option<String>) -> OpResult {
     docker::action(&store.project_path(&project_id), &action, service)
 }
-#[tauri::command]
-fn get_docker_logs(store: State<Store>, project_id: String, service: Option<String>) -> String {
-    docker::logs(&store.project_path(&project_id), service)
-}
 
 // ---------- agents / hooks ----------
 
@@ -390,6 +393,14 @@ fn uninstall_agent_hooks() -> AgentHooksStatus {
 #[tauri::command]
 fn get_global_claude() -> GlobalClaudeConfig {
     claude::global()
+}
+#[tauri::command]
+fn get_claude_chain(store: State<Store>, project_id: String) -> Vec<ClaudeChainFile> {
+    let st = store.get_state();
+    match st.projects.iter().find(|p| p.id == project_id) {
+        Some(p) => claude::claude_chain(&p.settings.path, &p.settings.claude_md_path),
+        None => vec![],
+    }
 }
 #[tauri::command]
 fn read_claude_file(rel_path: String) -> FileContent {
@@ -457,9 +468,25 @@ fn unwatch_project(watchers: State<Watchers>, project_id: String) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .manage(Pty::default())
         .manage(Store::load())
         .manage(Watchers::default())
+        .on_window_event(|window, event| {
+            // Clicking the OS notification activates the app → focus. If a jump is pending and
+            // still fresh, tell the renderer to switch to that project, then clear it.
+            if let tauri::WindowEvent::Focused(true) = event {
+                let pending = PENDING_JUMP.lock().unwrap().take();
+                if let Some((project_id, ts)) = pending {
+                    if now_ms().saturating_sub(ts) <= JUMP_TTL_MS {
+                        let _ = window.app_handle().emit(
+                            "notify-activate",
+                            serde_json::json!({ "projectId": project_id }),
+                        );
+                    }
+                }
+            }
+        })
         .setup(|app| {
             // Notification poller: tail the Notification-hook log, emit a "notify" event
             // (the renderer shows a tab badge). Seeded with "now" so old entries don't replay.
@@ -472,19 +499,44 @@ pub fn run() {
                         if ts > last {
                             last = ts;
                         }
-                        let project_id = {
+                        let (project_id, project_name, active_id) = {
                             let store = handle.state::<Store>();
-                            store
-                                .get_state()
-                                .projects
-                                .iter()
-                                .find(|p| cwd == p.settings.path || cwd.starts_with(&format!("{}/", p.settings.path)))
-                                .map(|p| p.id.clone())
+                            let st = store.get_state();
+                            let proj = st.projects.iter().find(|p| {
+                                cwd == p.settings.path
+                                    || cwd.starts_with(&format!("{}/", p.settings.path))
+                            });
+                            (
+                                proj.map(|p| p.id.clone()),
+                                proj.map(|p| p.name.clone()),
+                                st.active_project_id.clone(),
+                            )
                         };
                         let _ = handle.emit(
                             "notify",
                             serde_json::json!({ "projectId": project_id, "cwd": cwd, "message": message }),
                         );
+
+                        // Native OS notification — only when the user isn't already looking at
+                        // this project (window unfocused, or a different project is active).
+                        let focused = handle
+                            .get_webview_window("main")
+                            .and_then(|w| w.is_focused().ok())
+                            .unwrap_or(false);
+                        let looking_here =
+                            focused && active_id.is_some() && active_id == project_id;
+                        if !looking_here {
+                            let title = project_name.unwrap_or_else(|| "OrbisDeck".to_string());
+                            let body = if message.is_empty() {
+                                "Claude ждёт ответа".to_string()
+                            } else {
+                                message.clone()
+                            };
+                            let _ = handle.notification().builder().title(title).body(body).show();
+                            if let Some(pid) = project_id.clone() {
+                                *PENDING_JUMP.lock().unwrap() = Some((pid, ts));
+                            }
+                        }
                     }
                 }
             });
@@ -514,12 +566,12 @@ pub fn run() {
             read_file,
             get_docker_status,
             docker_action,
-            get_docker_logs,
             get_agents,
             get_agent_hooks_status,
             install_agent_hooks,
             uninstall_agent_hooks,
             get_global_claude,
+            get_claude_chain,
             read_claude_file,
             write_claude_settings,
             set_claude_permissions,

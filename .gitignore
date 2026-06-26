@@ -115,3 +115,6 @@ dist-electron/
 
 # TS incremental build info
 *.tsbuildinfo
+
+# Local scratch — parked design notes (not for the repo)
+NOTES-deferred-tails.md

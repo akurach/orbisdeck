@@ -33,6 +33,14 @@ export function App(): JSX.Element {
     })
   }, [activeId])
 
+  // Clicking the OS "awaiting input" notification jumps straight to that project.
+  const setActiveProject = cockpit.setActiveProject
+  useEffect(() => {
+    return window.cockpit.onNotifyActivate((e) => {
+      if (e.projectId) setActiveProject(e.projectId)
+    })
+  }, [setActiveProject])
+
   // Clear a project's badge once it becomes active.
   useEffect(() => {
     if (!activeId) return

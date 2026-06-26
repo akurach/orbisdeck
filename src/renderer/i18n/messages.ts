@@ -84,8 +84,6 @@ const ru: Record<string, string> = {
   'docker.logsAll': 'Логи (все)',
   'docker.noContainers': 'Нет контейнеров. Нажмите «Up all» для запуска.',
   'docker.logs': 'Логи',
-  'docker.logsTitleService': 'Логи · {service}',
-  'docker.logsTitleAll': 'Логи · все контейнеры',
 
   // bottom panel
   'bottom.notes': 'Заметки',
@@ -122,7 +120,20 @@ const ru: Record<string, string> = {
   'claude.globalConfig': 'Глобальная конфигурация Claude',
   'claude.elements': 'Элементы',
   'claude.text': 'Текст',
+  'claude.context': 'Контекст',
   'claude.notFound': 'CLAUDE.md не найден в этом проекте',
+  'cctx.intro': 'Из чего собирается контекст Claude для проекта — сверху вниз.',
+  'cctx.scopeGlobal': 'Глобальный ~/.claude/CLAUDE.md',
+  'cctx.scopeProject': 'Проект + @import-цепочка',
+  'cctx.scopeSettings': 'Настройки (редактируемое)',
+  'cctx.none': '— пусто —',
+  'cctx.missing': 'не найден',
+  'cctx.truncated': 'обрезан',
+  'cctx.edit': 'Изменить',
+  'cctx.permissions': 'Permissions',
+  'cctx.hooks': 'Хуки',
+  'cctx.mcp': 'MCP-серверы',
+  'cctx.commands': 'Команды',
   'claude.truncated': 'обрезано (большой файл)',
 
   // claude elements
@@ -159,6 +170,13 @@ const ru: Record<string, string> = {
   'settings.envPlaceholder': 'API_URL=http://localhost:3000\nDEBUG=1',
   'settings.envHint':
     'Подмешиваются в окружение всех терминалов проекта. Файл .env проекта подхватывается автоматически — здесь только дополнения/переопределения.',
+  'settings.runTargets.label': 'Доп. команды запуска',
+  'settings.runTargets.hint':
+    'Именованные команды — каждая становится кнопкой рядом с Run/Tests/Build. «Перед запуском» выполняется до основной (через &&) в том же терминале.',
+  'settings.runTargets.namePlaceholder': 'имя (dev)',
+  'settings.runTargets.commandPlaceholder': 'команда (npm run dev)',
+  'settings.runTargets.preLaunchPlaceholder': 'перед запуском (опц., npm ci)',
+  'settings.runTargets.add': 'Добавить команду',
   'settings.detect': 'Определить',
   'settings.detectTitle': 'Определить run/test/build по структуре',
   'settings.removeProject': 'Удалить проект',
@@ -312,8 +330,6 @@ const en: Record<string, string> = {
   'docker.logsAll': 'Logs (all)',
   'docker.noContainers': 'No containers. Click "Up all" to start.',
   'docker.logs': 'Logs',
-  'docker.logsTitleService': 'Logs · {service}',
-  'docker.logsTitleAll': 'Logs · all containers',
 
   // bottom panel
   'bottom.notes': 'Notes',
@@ -350,7 +366,20 @@ const en: Record<string, string> = {
   'claude.globalConfig': 'Global Claude configuration',
   'claude.elements': 'Elements',
   'claude.text': 'Text',
+  'claude.context': 'Context',
   'claude.notFound': 'CLAUDE.md not found in this project',
+  'cctx.intro': 'How Claude’s context for this project is assembled — top to bottom.',
+  'cctx.scopeGlobal': 'Global ~/.claude/CLAUDE.md',
+  'cctx.scopeProject': 'Project + @import chain',
+  'cctx.scopeSettings': 'Settings (editable)',
+  'cctx.none': '— empty —',
+  'cctx.missing': 'not found',
+  'cctx.truncated': 'truncated',
+  'cctx.edit': 'Edit',
+  'cctx.permissions': 'Permissions',
+  'cctx.hooks': 'Hooks',
+  'cctx.mcp': 'MCP servers',
+  'cctx.commands': 'Commands',
   'claude.truncated': 'truncated (large file)',
 
   // claude elements
@@ -387,6 +416,13 @@ const en: Record<string, string> = {
   'settings.envPlaceholder': 'API_URL=http://localhost:3000\nDEBUG=1',
   'settings.envHint':
     "Merged into the environment of all project terminals. The project's .env file is picked up automatically — this is only for additions/overrides.",
+  'settings.runTargets.label': 'Extra run commands',
+  'settings.runTargets.hint':
+    'Named commands — each becomes a button next to Run/Tests/Build. "Pre-launch" runs before the main one (chained with &&) in the same terminal.',
+  'settings.runTargets.namePlaceholder': 'name (dev)',
+  'settings.runTargets.commandPlaceholder': 'command (npm run dev)',
+  'settings.runTargets.preLaunchPlaceholder': 'pre-launch (opt., npm ci)',
+  'settings.runTargets.add': 'Add command',
   'settings.detect': 'Detect',
   'settings.detectTitle': 'Detect run/test/build from the structure',
   'settings.removeProject': 'Remove project',

@@ -63,10 +63,9 @@ export async function installTauriCockpit(): Promise<void> {
     getDockerStatus: (projectId) => invoke('get_docker_status', { projectId }),
     dockerAction: (projectId, action, service) =>
       invoke('docker_action', { projectId, action, service: service ?? null }),
-    getDockerLogs: (projectId, service) =>
-      invoke('get_docker_logs', { projectId, service: service ?? null }),
 
     getGlobalClaude: () => invoke('get_global_claude'),
+    getClaudeChain: (projectId) => invoke('get_claude_chain', { projectId }),
     readClaudeFile: (relPath) => invoke('read_claude_file', { relPath }),
     writeClaudeSettings: (text) => invoke('write_claude_settings', { text }),
     setClaudePermissions: (perms) => invoke('set_claude_permissions', { perms }),
@@ -74,7 +73,8 @@ export async function installTauriCockpit(): Promise<void> {
     onTerminalData: (handler) => sub('term-data', handler),
     onTerminalExit: (handler) => sub('term-exit', handler),
     onFilesChanged: (handler) => sub<{ projectId: ProjectId }>('files-changed', handler),
-    onNotify: (handler) => sub('notify', handler)
+    onNotify: (handler) => sub('notify', handler),
+    onNotifyActivate: (handler) => sub<{ projectId: ProjectId }>('notify-activate', handler)
   }
 
   ;(window as unknown as { cockpit: CockpitApi }).cockpit = api

@@ -100,8 +100,9 @@ Agents.
   defaults (never forced; editable later in Settings).
 - *Richer profile.* **✅ DONE (env + subdir).** `ProjectSettings.env` (KEY=VALUE lines, parsed
   in `ipc.ts` and merged into every terminal's env) and `cwdSubdir` (terminals start there).
-  Multiple named run targets / pre-launch hooks remain future. Still a profile, not a build
-  system.
+  **Multiple named run targets + pre-launch hooks — ✅ DONE:** `ProjectSettings.runTargets`
+  (`{name, command, preLaunch?}`), each a button by Run/Tests/Build; `preLaunch` chained with
+  `&&`. Editor in `SettingsPanel`. Still a profile, not a build system.
 - *Auto-launch on open.* **✅ DONE.** `ProjectSettings.autoLaunchCommand` (default `claude`,
   empty = plain shell). On open with no live terminals, TerminalPanel spawns it via the login
   shell (PATH resolves); editable/opt-out in the Settings panel. Persists in the project store.
@@ -121,7 +122,9 @@ the `docker` CLI behind the service seam (like `git.ts`). A "Docker" right-panel
 exec IPC, and "Логи" tails `compose logs`. Panel only acts when a compose file
 (`docker-compose.yml`/`compose.yaml`/`compose.yml`) exists; missing CLI / errors are reported
 states, never throws. **Not** a Docker Desktop clone (no image building, registry, volumes).
-Future: live log streaming into a terminal, per-service actions.
+**Live log streaming — ✅ DONE:** the log buttons spawn a terminal tab running
+`docker compose logs -f [service]` (via the `state/terminalBus.ts` spawn bus); the one-shot
+`LogsModal` + `getDockerLogs` seam were removed. Future: per-service start/stop already shipped.
 
 **CLAUDE.md as managed elements** — **✅ DONE (non-destructive view).** The Claude tab now has
 an **Элементы / Текст** toggle; "Элементы" parses the project CLAUDE.md by heading into
@@ -157,11 +160,18 @@ Requests from real use; ordered roughly by value/effort.
   what each means; ideally add/remove rules with validation (not just view).
 - **Hooks — readable view.** Present hooks (event → matcher → commands) in a clean, grouped,
   human layout instead of the current flat list; explain each event.
-- **Notification when a terminal awaits input.** Detect when the active claude/terminal is
-  waiting for the user (idle after a prompt / known "waiting" output) and surface a desktop
-  notification + a tab badge. Hard part: a *reliable* "is waiting" signal without TUI
-  scraping — candidates: pty idle (no output for N s after a write), or a Notification/Stop
-  hook. Prefer the hook path (we already install hooks).
+- **Notification when a terminal awaits input — ✅ DONE (native, hook path).** The
+  `Notification` hook writes `~/.claude/orbisdeck/notify.jsonl`; the `lib.rs` poll raises a
+  native OS notification (`tauri-plugin-notification`), suppressed when that project is already
+  focused+active. Clicking it activates the window → the `on_window_event` focus handler emits
+  `notify-activate` (TTL 20s) → the renderer jumps to that project (`setActiveProject`). The tab
+  badge is the in-app counterpart. Chose the honest hook signal over pty-idle scraping.
+- **Claude context inspector — ✅ DONE (read-only).** A "Контекст" view in the Claude tab
+  (`ClaudeContext.tsx`) showing the full assembled context chain: global `~/.claude/CLAUDE.md`
+  → project CLAUDE.md + resolved `@import` tree (backend `getClaudeChain`, cycle-guarded, capped)
+  → settings/permissions/hooks/MCP/commands summary. Editable layers deep-link to the existing
+  Global Claude editor; the rest is read-only. (Grew out of the old "CLAUDE.md as managed
+  elements" tail; write-back editing of elements remains future.)
 
 ---
 

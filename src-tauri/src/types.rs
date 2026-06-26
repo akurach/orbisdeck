@@ -5,6 +5,15 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct RunTarget {
+    pub name: String,
+    pub command: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pre_launch: Option<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct ProjectSettings {
     pub path: String,
     pub run_command: String,
@@ -18,6 +27,8 @@ pub struct ProjectSettings {
     pub env: Option<String>,
     #[serde(default)]
     pub cwd_subdir: Option<String>,
+    #[serde(default)]
+    pub run_targets: Option<Vec<RunTarget>>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -215,4 +226,14 @@ pub struct GlobalClaudeConfig {
 pub struct OpResult {
     pub ok: bool,
     pub error: String,
+}
+
+#[derive(Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeChainFile {
+    pub path: String,
+    pub content: String,
+    pub depth: u32,
+    pub missing: bool,
+    pub truncated: bool,
 }
