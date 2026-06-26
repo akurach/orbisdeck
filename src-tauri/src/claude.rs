@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use crate::types::{
-    ClaudeChainFile, ClaudeCommand, ClaudeHook, ClaudeMcpServer, ClaudePermissions, FileContent,
-    GlobalClaudeConfig, OpResult,
+    ClaudeChainFile, ClaudeCommand, ClaudeContextMap, ClaudeHook, ClaudeMapEdge, ClaudeMapNode,
+    ClaudeMcpServer, ClaudePermissions, FileContent, GlobalClaudeConfig, OpResult,
 };
 
 const CAP: u64 = 512 * 1024;
@@ -122,6 +122,188 @@ fn resolve_import(token: &str, dir: &Path) -> PathBuf {
     } else {
         dir.join(token)
     }
+}
+
+// --- M6: Global Claude context map (force-directed graph data, read-only) ---
+
+const MAP_MAX_PER_KIND: usize = 30;
+
+fn chain_from(start: &Path) -> Vec<ClaudeChainFile> {
+    let mut out = vec![];
+    let mut visited = HashSet::new();
+    if start.is_file() {
+        let disp = start.file_name().and_then(|n| n.to_str()).unwrap_or("CLAUDE.md").to_string();
+        chain_walk(start, disp, 0, &mut out, &mut visited);
+    }
+    out
+}
+
+/// Count skill packages in a dir: subdirs holding SKILL.md, plus top-level *.md files.
+fn count_skills(dir: &Path) -> usize {
+    let mut n = 0;
+    if let Ok(rd) = fs::read_dir(dir) {
+        for e in rd.flatten() {
+            let p = e.path();
+            if (p.is_dir() && p.join("SKILL.md").is_file())
+                || p.extension().and_then(|x| x.to_str()) == Some("md")
+            {
+                n += 1;
+            }
+        }
+    }
+    n
+}
+
+/// Count *.md files in a dir (agents, commands).
+fn count_md(dir: &Path) -> usize {
+    fs::read_dir(dir)
+        .map(|rd| {
+            rd.flatten()
+                .filter(|e| e.path().extension().and_then(|x| x.to_str()) == Some("md"))
+                .count()
+        })
+        .unwrap_or(0)
+}
+
+fn mk_node(id: &str, kind: &str, scope: &str, label: &str, detail: &str, delta: &str) -> ClaudeMapNode {
+    ClaudeMapNode {
+        id: id.into(),
+        kind: kind.into(),
+        scope: scope.into(),
+        label: label.into(),
+        detail: detail.into(),
+        delta: delta.into(),
+    }
+}
+fn mk_edge(from: &str, to: &str, kind: &str) -> ClaudeMapEdge {
+    ClaudeMapEdge { from: from.into(), to: to.into(), kind: kind.into() }
+}
+
+/// Build the global-vs-project context graph: CLAUDE.md (+@imports), settings, permissions,
+/// hooks, MCP, and aggregate skill/agent/command counts. Project nodes carry a delta vs global.
+pub fn context_map(project_path: &str, claude_md_rel: &str) -> ClaudeContextMap {
+    let mut nodes: Vec<ClaudeMapNode> = vec![];
+    let mut edges: Vec<ClaudeMapEdge> = vec![];
+
+    // ---------- GLOBAL ----------
+    let g = global();
+    let g_skills = count_skills(&claude_dir().join("skills"));
+    let g_agents = count_md(&claude_dir().join("agents"));
+    let g_commands = g.commands.len();
+    let g_root = "g:claudemd";
+    nodes.push(mk_node(g_root, "claudemd", "global", "CLAUDE.md", &g.claude_md_path, ""));
+
+    for (i, f) in chain_from(Path::new(&g.claude_md_path)).into_iter().enumerate().skip(1) {
+        let id = format!("g:import:{i}");
+        nodes.push(mk_node(&id, "import", "global", &f.path, "@import", ""));
+        edges.push(mk_edge(g_root, &id, "import"));
+    }
+    nodes.push(mk_node("g:settings", "settings", "global", "settings.json", &g.settings_path, ""));
+    edges.push(mk_edge(g_root, "g:settings", "registers"));
+    let perm_detail = format!(
+        "{}a · {}k · {}d",
+        g.permissions.allow.len(),
+        g.permissions.ask.len(),
+        g.permissions.deny.len()
+    );
+    nodes.push(mk_node("g:perms", "permissions", "global", "permissions", &perm_detail, ""));
+    edges.push(mk_edge(g_root, "g:perms", "registers"));
+    for (i, h) in g.hooks.iter().take(MAP_MAX_PER_KIND).enumerate() {
+        let id = format!("g:hook:{i}");
+        let label = if h.matcher.is_empty() { h.event.clone() } else { format!("{} {}", h.event, h.matcher) };
+        nodes.push(mk_node(&id, "hook", "global", &label, "", ""));
+        edges.push(mk_edge(g_root, &id, "registers"));
+    }
+    for (i, m) in g.mcp_servers.iter().take(MAP_MAX_PER_KIND).enumerate() {
+        let id = format!("g:mcp:{i}");
+        nodes.push(mk_node(&id, "mcp", "global", &m.name, &m.kind, ""));
+        edges.push(mk_edge(g_root, &id, "registers"));
+    }
+    if g_skills > 0 {
+        nodes.push(mk_node("g:skills", "skill", "global", "skills", &format!("×{g_skills}"), ""));
+        edges.push(mk_edge(g_root, "g:skills", "registers"));
+    }
+    if g_agents > 0 {
+        nodes.push(mk_node("g:agents", "agent", "global", "agents", &format!("×{g_agents}"), ""));
+        edges.push(mk_edge(g_root, "g:agents", "registers"));
+    }
+    if g_commands > 0 {
+        nodes.push(mk_node("g:commands", "command", "global", "commands", &format!("×{g_commands}"), ""));
+        edges.push(mk_edge(g_root, "g:commands", "registers"));
+    }
+
+    // ---------- PROJECT ----------
+    if project_path.is_empty() {
+        return ClaudeContextMap { nodes, edges };
+    }
+    let proot = Path::new(project_path);
+    let pclaude = proot.join(".claude");
+    let p_root = "p:claudemd";
+    let p_chain = claude_chain(project_path, claude_md_rel);
+    let p_has_md = p_chain.first().map(|f| !f.missing).unwrap_or(false);
+    nodes.push(mk_node(
+        p_root,
+        "claudemd",
+        "project",
+        "CLAUDE.md",
+        p_chain.first().map(|f| f.path.as_str()).unwrap_or("CLAUDE.md"),
+        if p_has_md { "added" } else { "" },
+    ));
+    for (i, f) in p_chain.into_iter().enumerate().skip(1) {
+        let id = format!("p:import:{i}");
+        nodes.push(mk_node(&id, "import", "project", &f.path, "@import", "added"));
+        edges.push(mk_edge(p_root, &id, "import"));
+    }
+
+    let psettings = read_json(&pclaude.join("settings.json"));
+    let plocal = read_json(&pclaude.join("settings.local.json"));
+    if psettings.is_some() || plocal.is_some() {
+        nodes.push(mk_node("p:settings", "settings", "project", "settings.json", ".claude/settings.json", "override"));
+        edges.push(mk_edge(p_root, "p:settings", "registers"));
+        edges.push(mk_edge("p:settings", "g:settings", "override"));
+        let pp = parse_permissions(&psettings, &plocal);
+        if !pp.allow.is_empty() || !pp.ask.is_empty() || !pp.deny.is_empty() {
+            let d = format!("{}a · {}k · {}d", pp.allow.len(), pp.ask.len(), pp.deny.len());
+            nodes.push(mk_node("p:perms", "permissions", "project", "permissions", &d, "override"));
+            edges.push(mk_edge(p_root, "p:perms", "registers"));
+            edges.push(mk_edge("p:perms", "g:perms", "override"));
+        }
+        for (i, h) in parse_hooks(&psettings).into_iter().take(MAP_MAX_PER_KIND).enumerate() {
+            let id = format!("p:hook:{i}");
+            let label = if h.matcher.is_empty() { h.event.clone() } else { format!("{} {}", h.event, h.matcher) };
+            nodes.push(mk_node(&id, "hook", "project", &label, "", "added"));
+            edges.push(mk_edge(p_root, &id, "registers"));
+        }
+    }
+    let pmcp = parse_mcp(&read_json(&proot.join(".mcp.json")), ".mcp.json");
+    for (i, m) in pmcp.iter().take(MAP_MAX_PER_KIND).enumerate() {
+        let id = format!("p:mcp:{i}");
+        let collides = g.mcp_servers.iter().any(|gm| gm.name == m.name);
+        nodes.push(mk_node(&id, "mcp", "project", &m.name, &m.kind, if collides { "override" } else { "added" }));
+        edges.push(mk_edge(p_root, &id, "registers"));
+        if collides {
+            if let Some((gi, _)) = g.mcp_servers.iter().enumerate().find(|(_, gm)| gm.name == m.name) {
+                edges.push(mk_edge(&id, &format!("g:mcp:{gi}"), "override"));
+            }
+        }
+    }
+    let p_skills = count_skills(&pclaude.join("skills"));
+    let p_agents = count_md(&pclaude.join("agents"));
+    let p_commands = count_md(&pclaude.join("commands"));
+    if p_skills > 0 {
+        nodes.push(mk_node("p:skills", "skill", "project", "skills", &format!("×{p_skills}"), "added"));
+        edges.push(mk_edge(p_root, "p:skills", "registers"));
+    }
+    if p_agents > 0 {
+        nodes.push(mk_node("p:agents", "agent", "project", "agents", &format!("×{p_agents}"), "added"));
+        edges.push(mk_edge(p_root, "p:agents", "registers"));
+    }
+    if p_commands > 0 {
+        nodes.push(mk_node("p:commands", "command", "project", "commands", &format!("×{p_commands}"), "added"));
+        edges.push(mk_edge(p_root, "p:commands", "registers"));
+    }
+
+    ClaudeContextMap { nodes, edges }
 }
 
 fn claude_dir() -> PathBuf {

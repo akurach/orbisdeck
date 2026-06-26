@@ -913,6 +913,102 @@ body {
   opacity: 0.8;
 }
 
+/* Global Claude context map (force-directed graph) */
+.ctx-graph {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+}
+.ctx-graph-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-muted, #8b949e);
+  flex-wrap: wrap;
+}
+.ctx-leg::before {
+  content: '';
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.ctx-leg.global::before {
+  background: var(--accent);
+}
+.ctx-leg.project::before {
+  background: #3fb950;
+}
+.ctx-graph-hint {
+  margin-left: auto;
+  opacity: 0.7;
+}
+.ctx-graph-svg {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 460px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--border, #ffffff14);
+  border-radius: 8px;
+  touch-action: none;
+  cursor: grab;
+}
+.ctx-divider {
+  stroke: var(--border, #ffffff14);
+  stroke-width: 1;
+  stroke-dasharray: 4 6;
+}
+.ctx-edge {
+  stroke: #ffffff26;
+  stroke-width: 1;
+}
+.ctx-edge.import {
+  stroke: var(--accent);
+  opacity: 0.5;
+}
+.ctx-edge.override {
+  stroke: #3fb950;
+  stroke-dasharray: 3 3;
+  opacity: 0.7;
+}
+.ctx-node {
+  cursor: default;
+}
+.ctx-node.clickable {
+  cursor: pointer;
+}
+.ctx-node-dot {
+  fill: #161b22;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.ctx-node.scope-project .ctx-node-dot {
+  stroke: #3fb950;
+}
+.ctx-node-glyph {
+  fill: #e6edf3;
+  font-size: 14px;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.ctx-node-delta {
+  fill: #3fb950;
+  font-size: 13px;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.ctx-node-label {
+  fill: #c9d1d9;
+  font-size: 10px;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
 /* Claude settings form (Global Claude → Settings) */
 .claude-form {
   display: flex;

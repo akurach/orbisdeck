@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import hljs from 'highlight.js/lib/common'
 import 'highlight.js/styles/github-dark.css'
-import type { FileContent, GlobalClaudeConfig } from '../../shared/types'
+import type { FileContent, GlobalClaudeConfig, ProjectId } from '../../shared/types'
 import { useT } from '../i18n'
 import { ClaudeElements } from './ClaudeElements'
 import { ClaudeSettingsForm } from './ClaudeSettingsForm'
 import { PermissionsEditor } from './PermissionsEditor'
+import { ClaudeContextGraph } from './ClaudeContextGraph'
 
 interface Props {
   onClose: () => void
+  /** Active project — drives the project column of the context map (null = global only). */
+  projectId: ProjectId | null
 }
 
-type Section = 'settings' | 'permissions' | 'hooks' | 'mcp' | 'commands' | 'claudemd'
+type Section = 'map' | 'settings' | 'permissions' | 'hooks' | 'mcp' | 'commands' | 'claudemd'
 
 // Plain-language hook-event descriptions, keyed so each resolves through i18n at render.
 const HOOK_EVENTS = [
@@ -48,10 +51,10 @@ function Code({ code, language }: { code: string; language: string }): JSX.Eleme
   )
 }
 
-export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
+export function GlobalClaudeModal({ onClose, projectId }: Props): JSX.Element {
   const t = useT()
   const [cfg, setCfg] = useState<GlobalClaudeConfig | null>(null)
-  const [section, setSection] = useState<Section>('settings')
+  const [section, setSection] = useState<Section>('map')
   const [openCmd, setOpenCmd] = useState<FileContent | null>(null)
   const [mdView, setMdView] = useState<'elements' | 'text'>('elements')
   const [settingsView, setSettingsView] = useState<'form' | 'raw'>('form')
@@ -59,6 +62,7 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
   const [hooksBusy, setHooksBusy] = useState(false)
 
   const SECTIONS: { key: Section; label: string }[] = [
+    { key: 'map', label: t('map.tab') },
     { key: 'settings', label: 'Settings' },
     { key: 'permissions', label: 'Permissions' },
     { key: 'hooks', label: 'Hooks' },
@@ -152,6 +156,13 @@ export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
             </div>
 
             <div className="claude-section-body">
+              {section === 'map' && (
+                <ClaudeContextGraph
+                  projectId={projectId}
+                  onOpenSection={(s) => setSection(s as Section)}
+                />
+              )}
+
               {section === 'settings' && (
                 <>
                   <div className="claude-head">

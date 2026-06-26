@@ -66,6 +66,7 @@ export async function installTauriCockpit(): Promise<void> {
 
     getGlobalClaude: () => invoke('get_global_claude'),
     getClaudeChain: (projectId) => invoke('get_claude_chain', { projectId }),
+    getClaudeContextMap: (projectId) => invoke('get_claude_context_map', { projectId }),
     readClaudeFile: (relPath) => invoke('read_claude_file', { relPath }),
     writeClaudeSettings: (text) => invoke('write_claude_settings', { text }),
     setClaudePermissions: (perms) => invoke('set_claude_permissions', { perms }),

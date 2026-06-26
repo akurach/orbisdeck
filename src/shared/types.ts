@@ -277,6 +277,40 @@ export interface ClaudeChainFile {
   truncated: boolean
 }
 
+export type ClaudeNodeKind =
+  | 'claudemd'
+  | 'import'
+  | 'settings'
+  | 'permissions'
+  | 'hook'
+  | 'mcp'
+  | 'skill'
+  | 'agent'
+  | 'command'
+
+/** One node in the Global Claude context-assembly graph. */
+export interface ClaudeMapNode {
+  id: string
+  kind: ClaudeNodeKind
+  scope: 'global' | 'project'
+  label: string
+  /** short subtitle, e.g. a path or "×312" */
+  detail: string
+  /** project-only relationship to global: 'added' | 'override' | '' */
+  delta: 'added' | 'override' | ''
+}
+
+export interface ClaudeMapEdge {
+  from: string
+  to: string
+  kind: 'import' | 'registers' | 'override'
+}
+
+export interface ClaudeContextMap {
+  nodes: ClaudeMapNode[]
+  edges: ClaudeMapEdge[]
+}
+
 /** Read-only snapshot of the global Claude install (~/.claude). */
 export interface GlobalClaudeConfig {
   /** absolute ~/.claude path */

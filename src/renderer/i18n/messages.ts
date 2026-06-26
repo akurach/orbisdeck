@@ -134,6 +134,12 @@ const ru: Record<string, string> = {
   'cctx.hooks': 'Хуки',
   'cctx.mcp': 'MCP-серверы',
   'cctx.commands': 'Команды',
+  'map.tab': 'Карта',
+  'map.global': 'Глобально (~/.claude)',
+  'map.project': 'Проект',
+  'map.added': 'добавлено проектом',
+  'map.override': 'переопределяет global',
+  'map.hint': 'тяни узлы · колесо — зум · клик — детали',
   'claude.truncated': 'обрезано (большой файл)',
 
   // claude elements
@@ -380,6 +386,12 @@ const en: Record<string, string> = {
   'cctx.hooks': 'Hooks',
   'cctx.mcp': 'MCP servers',
   'cctx.commands': 'Commands',
+  'map.tab': 'Map',
+  'map.global': 'Global (~/.claude)',
+  'map.project': 'Project',
+  'map.added': 'added by project',
+  'map.override': 'overrides global',
+  'map.hint': 'drag nodes · wheel to zoom · click for detail',
   'claude.truncated': 'truncated (large file)',
 
   // claude elements

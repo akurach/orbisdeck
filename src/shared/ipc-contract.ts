@@ -10,6 +10,7 @@ import type {
   AgentInfo,
   AppState,
   ClaudeChainFile,
+  ClaudeContextMap,
   ClaudePermissions,
   DetectedSettings,
   DiffResult,
@@ -95,6 +96,8 @@ export interface CockpitApi {
   getGlobalClaude(): Promise<GlobalClaudeConfig>
   /** Project CLAUDE.md + its resolved @import chain (read-only context inspector). */
   getClaudeChain(projectId: ProjectId): Promise<ClaudeChainFile[]>
+  /** Global-vs-project context-assembly graph (nodes + edges) for the Global Claude map. */
+  getClaudeContextMap(projectId: ProjectId): Promise<ClaudeContextMap>
   /** Read one file under ~/.claude (sandboxed), e.g. a command's markdown. */
   readClaudeFile(relPath: string): Promise<FileContent>
   /** Overwrite ~/.claude/settings.json from edited JSON text (validated, atomic, backup). */
@@ -148,6 +151,7 @@ export const IpcChannels = {
   dockerAction: 'cockpit:dockerAction',
   getGlobalClaude: 'cockpit:getGlobalClaude',
   getClaudeChain: 'cockpit:getClaudeChain',
+  getClaudeContextMap: 'cockpit:getClaudeContextMap',
   readClaudeFile: 'cockpit:readClaudeFile',
   writeClaudeSettings: 'cockpit:writeClaudeSettings',
   setClaudePermissions: 'cockpit:setClaudePermissions'

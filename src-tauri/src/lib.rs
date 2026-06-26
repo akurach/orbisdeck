@@ -403,6 +403,14 @@ fn get_claude_chain(store: State<Store>, project_id: String) -> Vec<ClaudeChainF
     }
 }
 #[tauri::command]
+fn get_claude_context_map(store: State<Store>, project_id: String) -> ClaudeContextMap {
+    let st = store.get_state();
+    match st.projects.iter().find(|p| p.id == project_id) {
+        Some(p) => claude::context_map(&p.settings.path, &p.settings.claude_md_path),
+        None => claude::context_map("", ""),
+    }
+}
+#[tauri::command]
 fn read_claude_file(rel_path: String) -> FileContent {
     claude::read_file(&rel_path)
 }
@@ -598,6 +606,7 @@ pub fn run() {
             uninstall_agent_hooks,
             get_global_claude,
             get_claude_chain,
+            get_claude_context_map,
             read_claude_file,
             write_claude_settings,
             set_claude_permissions,

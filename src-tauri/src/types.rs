@@ -237,3 +237,33 @@ pub struct ClaudeChainFile {
     pub missing: bool,
     pub truncated: bool,
 }
+
+#[derive(Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeMapNode {
+    pub id: String,
+    /// claudemd | import | settings | permissions | hook | mcp | skill | agent | command
+    pub kind: String,
+    /// global | project
+    pub scope: String,
+    pub label: String,
+    pub detail: String,
+    /// project-only: "added" | "override" | "" (none)
+    pub delta: String,
+}
+
+#[derive(Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeMapEdge {
+    pub from: String,
+    pub to: String,
+    /// import | registers | override
+    pub kind: String,
+}
+
+#[derive(Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeContextMap {
+    pub nodes: Vec<ClaudeMapNode>,
+    pub edges: Vec<ClaudeMapEdge>,
+}

@@ -237,7 +237,9 @@ export function App(): JSX.Element {
         />
       )}
 
-      {globalClaude && <GlobalClaudeModal onClose={() => setGlobalClaude(false)} />}
+      {globalClaude && (
+        <GlobalClaudeModal projectId={activeId} onClose={() => setGlobalClaude(false)} />
+      )}
 
       {appSettings && <AppSettingsModal onClose={() => setAppSettings(false)} />}
 
