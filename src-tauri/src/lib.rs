@@ -465,8 +465,34 @@ fn unwatch_project(watchers: State<Watchers>, project_id: String) {
     watchers.0.lock().unwrap().remove(&project_id);
 }
 
+// A GUI app launched from Finder/Dock inherits a minimal PATH (/usr/bin:/bin:…) — it never
+// sources the user's shell profile, so CLIs in /opt/homebrew/bin, /usr/local/bin, Docker
+// Desktop, etc. are invisible. Ask the login shell for its real PATH once at startup and adopt
+// it, so every Command::new (docker/git/pgrep/lsof) and hook `node` resolves like in a terminal.
+#[cfg(target_os = "macos")]
+fn adopt_login_shell_path() {
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    let out = std::process::Command::new(&shell)
+        .args(["-ilc", "echo -n __OD_PATH__${PATH}__OD_PATH__"])
+        .output();
+    if let Ok(out) = out {
+        let s = String::from_utf8_lossy(&out.stdout);
+        if let (Some(a), Some(b)) = (s.find("__OD_PATH__"), s.rfind("__OD_PATH__")) {
+            if b > a {
+                let path = &s[a + "__OD_PATH__".len()..b];
+                if path.contains('/') {
+                    std::env::set_var("PATH", path);
+                }
+            }
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "macos")]
+    adopt_login_shell_path();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .manage(Pty::default())

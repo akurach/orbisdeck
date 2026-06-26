@@ -65,6 +65,28 @@ body {
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
+/* xterm renders its own viewport scrollbar; without these it falls back to the native
+   (white) macOS bar. Force the same dark thumb as the rest of the shell. */
+.xterm-viewport {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.xterm-viewport::-webkit-scrollbar {
+  width: 10px;
+}
+.xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+.xterm-viewport::-webkit-scrollbar-thumb {
+  background: #ffffff26;
+  background-clip: content-box;
+  border: 2px solid transparent;
+  border-radius: 8px;
+}
+.xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: #ffffff40;
+  background-clip: content-box;
+}
 
 .app {
   display: flex;
