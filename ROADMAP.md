@@ -200,6 +200,44 @@ Full Tauri backend was ported; M7 made it the product. All eight items landed:
 
 ---
 
+### Post-M7 posture (council decision) — audience = 1
+
+> Convened the full council (CPO · CTO · Engineer · User Researcher · Executive) after the
+> v1 roadmap closed. Near-unanimous. Recorded so it doesn't drift.
+
+**Posture: audience = 1. STABILIZE + exactly one DEEPEN bet — a cross-project _attention
+router_ ("which session is waiting on me"). BROADEN (distribution / notarize / auto-update)
+is frozen until a real second user asks.**
+
+Why: the single unique value of a cockpit over many projects is routing attention back to the
+session that's blocked on you (dead time while you're heads-down in another project). Everything
+else is pleasant sugar over tmux. The honest signal **already flows** — the `Notification` hook
+writes `~/.claude/orbisdeck/notify.jsonl`; today it only fires an OS notification. The build is
+mostly wiring data that already exists, not a new agent system.
+
+### M8 — Cross-project attention router · NEXT (the one sanctioned DEEPEN bet)
+
+- **Fleet-status (~week).** Lift `notify.jsonl`/`agents.jsonl` from one-shot OS notification into
+  a **per-project state** above the tabs: three honest, *observed* states only —
+  `working` (fresh `PreToolUse`) · `waiting since X` (`Notification` with no follow-up) ·
+  `idle/done`. No "progress"/ETA (not honestly observable). This finally fills IDEA.md
+  Scenario 3 (Agents) from real data, not pty-scraping.
+- **Jump-to-waiting hotkey.** Global hotkey → jump to the longest-waiting session (reuse the
+  existing `notify-activate` / `setActiveProject` mechanics).
+- **Cheap seam to lay now (CTO).** session-id correlation terminal↔agent + a separate
+  append-only run-store (`~/.claude/orbisdeck/runs.jsonl`), **not** in the config JSON blob.
+  Small, non-committing, keeps run-state out of the config store before it bloats.
+- **New honest metric (User Researcher).** Instrument the loop: does notification→jump actually
+  fire, and do you use it? Replaces the spent "5 days straight" gate. If it rarely fires, the
+  parallelism thesis is weaker than it looks — name it honestly then.
+- **Cheap adjacent (optional).** Editable CLAUDE.md (project + global) via the atomic+backup
+  writer that already exists — closes the loop with the context inspector. Only if a real
+  "ugh, went to edit it by hand again" pain shows up.
+
+**Triggers that change this:** a concrete second user asks → reconsider BROADEN; catching
+yourself leaving the app 3+×/week to do what the cockpit could → full DEEPEN; a week of not
+opening Settings/roadmap to add anything → it's done, freeze and use it (success, not failure).
+
 ## What we deliberately won't do
 
 - No read-only-only dashboard (dodges the core risk, ships a launcher).
@@ -212,6 +250,16 @@ Full Tauri backend was ported; M7 made it the product. All eight items landed:
   only the React renderer. One interface, one impl, one lint rule.
 - No live git badges on the file tree synced to chokidar.
 - No full-mockup build (3–6 months vs a single user with 4 real projects elsewhere = abandonment).
+- **(post-M7) No own agent orchestration** — spawning N sessions is cheap, but coordination/
+  retry/lifecycle = a second Claude Code and a hard scope break. Fleet-status (read-only) yes;
+  orchestration no.
+- **(post-M7) No distribution / notarize / auto-update** until a real second user. Auto-update
+  especially = signing keys + endpoint + manifest + permanent maintenance for ~zero single-user
+  value. Sign+notarize stays a one-off "on demand" task, not a milestone.
+- **(post-M7) No deeper context-inspector** (element write-back / managed toggles). It's a
+  debug tool, not a daily habit; max polish = global-vs-project delta highlighting.
+- **(post-M7) No structured write-back into `~/.claude.json`** — it's parsed partially (mcp
+  only, under cap); writing over a partial parse risks data loss.
 
 ---
 

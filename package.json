@@ -1,6 +1,6 @@
 {
   "name": "orbisdeck",
-  "version": "0.1.0",
+  "version": "0.7.0",
   "description": "OrbisDeck — project command center: a macOS desktop app for managing multiple Claude Code projects",
   "author": "Alexander Kurach",
   "license": "GPL-3.0-only",
