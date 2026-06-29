@@ -242,30 +242,33 @@ Fix is cheap and honest: add a few hooks.
   Align to the project-root ∪ `~/.claude` sandbox the other readers use.
 - Nested-project prefix match (`cwd.starts_with("{path}/")`) zings the parent too → longest-prefix.
 
-### M8 — Cross-project attention router · NEXT (the one sanctioned DEEPEN bet)
+### M8 — Cross-project attention router · ✅ M8.0 + M8.1 SHIPPED
 
-Build as two slices behind the Executive gate (don't build the big version on faith):
+> The Executive gate (a week of counting the pain first) was **skipped by user call** — built
+> both slices directly. The honest metric still applies in use: if the colored status rarely
+> moves / you don't act on it, name the parallelism thesis as weaker than hoped and freeze.
 
-- **M8.0 — Slice 0 (~1 day, no hook changes, near-zero risk).** Turn the already-honest
-  `notify.jsonl` waiting signal from a transient flash into a **persistent per-project state**:
-  badge/colored dot that stays until the project is focused, + **seed current waiting on app
-  start** (read the `notify.jsonl` tail once — today a project that was waiting before launch
-  shows nothing). This IS the minimal cross-project attention router, from data that already
-  ships. Pair with the **P0 tail-cap fix** (it's the hot path).
-- **Instrument the loop (new honest gate).** Count notify→jump: does it fire, do you use it?
-  Replaces the spent "5 days straight" gate.
-- **THE GATE (Executive).** Then a week of honest use, counting: *how many times was I actually
-  blocked by not noticing a waiting session in another project?* **≥3/week → build M8.1.
-  <3/week → declare v1 done, freeze, go work the real projects (success, not capitulation).**
-- **M8.1 — Slice 1 (2–4 days, gated).** Add honest `working`/`idle`: install
-  `UserPromptSubmit`→working, `Stop`/`SessionEnd`→idle hooks, write to a NEW `state.jsonl`
-  (don't touch `agents.jsonl`); update `status().installed` + reinstall hooks idempotently. New
-  `get_project_states()` — tail-read + reduce per `cwd` (longest-prefix), priority
-  `waiting > working > idle`, with a **staleness timeout** (working older than ~15 min → idle, so
-  a crashed session without `Stop` doesn't hang). Colored status strip over the tabs that
-  **retires the empty Agents panel** (UR). Build on a read-side run-store module
-  (`runstore.rs`) that owns incremental byte-offset tail + rotation + session correlation —
-  **outside** `cockpit-state.json`.
+- **M8.0 — ✅ DONE.** The already-honest `notify.jsonl` waiting signal is now a **persistent
+  per-project badge** (stays until the project is focused) and is **seeded on app start**
+  (`get_waiting_projects`, read off the capped `notify.jsonl` tail) so a project that was
+  waiting before launch still shows. Paired with the **P0 tail-cap fix** (`read_log_capped` —
+  256 KB tail + in-place rotation at 1 MB; both hook-log readers use it).
+- **M8.1 — ✅ DONE.** Honest `working`/`idle` added: hooks `UserPromptSubmit`→busy,
+  `Stop`/`SessionEnd`→idle write to a NEW `state.jsonl` (`agents.jsonl` untouched).
+  **Edge-triggered** — working lives between a prompt and the stop, so no per-tool `node`
+  spawns and no time-based guessing; a 30-min **staleness backstop** downgrades a crashed
+  `working` (no Stop) to idle. `status()`/`install()`/`uninstall()` updated for the new events;
+  `upgrade_hooks_if_present()` runs on startup so existing users get them without a re-prompt.
+  Backend `latest_cwd_states()` merges `state.jsonl` + `notify.jsonl` (newest per cwd wins);
+  `get_project_states` maps cwd→project by **longest-prefix** (nested project wins) and reduces
+  per project. Renderer polls every 2s (subsumes the M8.0 seed), `onNotify` flips waiting
+  instantly, focusing a waiting project clears it. **Colored status dot on each tab** —
+  yellow=waiting, green=working, none=idle. Never fakes `working` from `pgrep`/pty.
+- **Deferred tail:** retiring the (now-redundant) facts-only Agents panel in favor of this
+  status surface; a jump-to-longest-waiting hotkey; the dedicated `runstore.rs` module (current
+  readers are capped + rotated, which removed the urgency).
+- **Honest metric (still live):** does the status move and do you act on it? Replaces the spent
+  "5 days straight" gate.
 
 ### Other threads (user-directed, round 2) — roadmap, not committed
 
