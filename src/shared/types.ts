@@ -334,4 +334,9 @@ export interface GlobalClaudeConfig {
   hooks: ClaudeHook[]
   mcpServers: ClaudeMcpServer[]
   commands: ClaudeCommand[]
+  /** Skills (~/.claude/skills): a SKILL.md-bearing dir or a top-level *.md. Same shape as
+   *  commands so each lists + opens via readClaudeFile. */
+  skills: ClaudeCommand[]
+  /** Sub-agents (~/.claude/agents/*.md), same shape. */
+  agents: ClaudeCommand[]
 }

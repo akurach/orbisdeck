@@ -210,6 +210,10 @@ const ru: Record<string, string> = {
 
   // global claude modal
   'gc.commands': 'Команды',
+  'gc.skills': 'Скиллы',
+  'gc.agents': 'Агенты',
+  'gc.noSkills': 'Скиллы не найдены',
+  'gc.noAgents': 'Агенты не найдены',
   'gc.hooksRow': 'Live-агенты (хуки в settings.json)',
   'gc.hooksOn': 'включены',
   'gc.hooksOff': 'выключены',
@@ -463,6 +467,10 @@ const en: Record<string, string> = {
 
   // global claude modal
   'gc.commands': 'Commands',
+  'gc.skills': 'Skills',
+  'gc.agents': 'Agents',
+  'gc.noSkills': 'No skills found',
+  'gc.noAgents': 'No agents found',
   'gc.hooksRow': 'Live agents (hooks in settings.json)',
   'gc.hooksOn': 'on',
   'gc.hooksOff': 'off',

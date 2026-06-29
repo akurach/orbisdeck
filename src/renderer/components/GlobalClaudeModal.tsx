@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import hljs from 'highlight.js/lib/common'
 import 'highlight.js/styles/github-dark.css'
-import type { FileContent, GlobalClaudeConfig, ProjectId } from '../../shared/types'
+import type { ClaudeCommand, FileContent, GlobalClaudeConfig, ProjectId } from '../../shared/types'
 import { useT } from '../i18n'
 import { ClaudeElements } from './ClaudeElements'
 import { ClaudeSettingsForm } from './ClaudeSettingsForm'
@@ -14,7 +14,16 @@ interface Props {
   projectId: ProjectId | null
 }
 
-type Section = 'map' | 'settings' | 'permissions' | 'hooks' | 'mcp' | 'commands' | 'claudemd'
+type Section =
+  | 'map'
+  | 'settings'
+  | 'permissions'
+  | 'hooks'
+  | 'mcp'
+  | 'skills'
+  | 'agents'
+  | 'commands'
+  | 'claudemd'
 
 // Plain-language hook-event descriptions, keyed so each resolves through i18n at render.
 const HOOK_EVENTS = [
@@ -67,6 +76,8 @@ export function GlobalClaudeModal({ onClose, projectId }: Props): JSX.Element {
     { key: 'permissions', label: 'Permissions' },
     { key: 'hooks', label: 'Hooks' },
     { key: 'mcp', label: 'MCP' },
+    { key: 'skills', label: t('gc.skills') },
+    { key: 'agents', label: t('gc.agents') },
     { key: 'commands', label: t('gc.commands') },
     { key: 'claudemd', label: 'CLAUDE.md' }
   ]
@@ -105,6 +116,35 @@ export function GlobalClaudeModal({ onClose, projectId }: Props): JSX.Element {
     window.cockpit.getGlobalClaude().then(setCfg)
   }
 
+  // Shared "list of files → open one" view for commands / skills / agents (all read via
+  // readClaudeFile and shown with the openCmd viewer).
+  const renderFiles = (list: ClaudeCommand[], emptyKey: string, prefix: string): JSX.Element =>
+    list.length === 0 ? (
+      <div className="viewer-empty">{t(emptyKey)}</div>
+    ) : openCmd ? (
+      <>
+        <div className="claude-path">
+          <button className="btn" onClick={() => setOpenCmd(null)}>
+            ← {t('common.back')}
+          </button>
+          <span>{openCmd.path}</span>
+        </div>
+        <Code code={openCmd.content} language={openCmd.language || 'markdown'} />
+      </>
+    ) : (
+      <div className="claude-commands">
+        {list.map((c) => (
+          <div key={c.path} className="claude-command" onClick={() => openCommand(c.path)}>
+            <span className="claude-cmd-name">
+              {prefix}
+              {c.name}
+            </span>
+            <span className="claude-cmd-desc">{c.description}</span>
+          </div>
+        ))}
+      </div>
+    )
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal claude-modal" onClick={(e) => e.stopPropagation()}>
@@ -139,7 +179,10 @@ export function GlobalClaudeModal({ onClose, projectId }: Props): JSX.Element {
                 <div
                   key={s.key}
                   className={`right-tab ${section === s.key ? 'active' : ''}`}
-                  onClick={() => setSection(s.key)}
+                  onClick={() => {
+                    setOpenCmd(null)
+                    setSection(s.key)
+                  }}
                 >
                   {s.label}
                   {s.key === 'hooks' && cfg.hooks.length > 0 && (
@@ -147,6 +190,12 @@ export function GlobalClaudeModal({ onClose, projectId }: Props): JSX.Element {
                   )}
                   {s.key === 'mcp' && cfg.mcpServers.length > 0 && (
                     <span className="claude-count"> {cfg.mcpServers.length}</span>
+                  )}
+                  {s.key === 'skills' && cfg.skills.length > 0 && (
+                    <span className="claude-count"> {cfg.skills.length}</span>
+                  )}
+                  {s.key === 'agents' && cfg.agents.length > 0 && (
+                    <span className="claude-count"> {cfg.agents.length}</span>
                   )}
                   {s.key === 'commands' && cfg.commands.length > 0 && (
                     <span className="claude-count"> {cfg.commands.length}</span>
@@ -250,33 +299,9 @@ export function GlobalClaudeModal({ onClose, projectId }: Props): JSX.Element {
                   </div>
                 ))}
 
-              {section === 'commands' &&
-                (cfg.commands.length === 0 ? (
-                  <div className="viewer-empty">{t('gc.noCommands')}</div>
-                ) : openCmd ? (
-                  <>
-                    <div className="claude-path">
-                      <button className="btn" onClick={() => setOpenCmd(null)}>
-                        ← {t('common.back')}
-                      </button>
-                      <span>{openCmd.path}</span>
-                    </div>
-                    <Code code={openCmd.content} language={openCmd.language || 'markdown'} />
-                  </>
-                ) : (
-                  <div className="claude-commands">
-                    {cfg.commands.map((c) => (
-                      <div
-                        key={c.path}
-                        className="claude-command"
-                        onClick={() => openCommand(c.path)}
-                      >
-                        <span className="claude-cmd-name">/{c.name}</span>
-                        <span className="claude-cmd-desc">{c.description}</span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
+              {section === 'skills' && renderFiles(cfg.skills, 'gc.noSkills', '')}
+              {section === 'agents' && renderFiles(cfg.agents, 'gc.noAgents', '')}
+              {section === 'commands' && renderFiles(cfg.commands, 'gc.noCommands', '/')}
 
               {section === 'claudemd' &&
                 (cfg.claudeMdText ? (

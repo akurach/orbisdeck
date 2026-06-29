@@ -208,11 +208,10 @@ pub fn context_map(project_path: &str, claude_md_rel: &str) -> ClaudeContextMap 
     );
     nodes.push(mk_node("g:perms", "permissions", "global", "permissions", &perm_detail, ""));
     edges.push(mk_edge(g_root, "g:perms", "registers"));
-    for (i, h) in g.hooks.iter().take(MAP_MAX_PER_KIND).enumerate() {
-        let id = format!("g:hook:{i}");
-        let label = if h.matcher.is_empty() { h.event.clone() } else { format!("{} {}", h.event, h.matcher) };
-        nodes.push(mk_node(&id, "hook", "global", &label, "", ""));
-        edges.push(mk_edge(g_root, &id, "registers"));
+    // One aggregate hooks node, not one per hook — the per-hook flood was unreadable.
+    if !g.hooks.is_empty() {
+        nodes.push(mk_node("g:hooks", "hook", "global", "hooks", &format!("×{}", g.hooks.len()), ""));
+        edges.push(mk_edge(g_root, "g:hooks", "registers"));
     }
     for (i, m) in g.mcp_servers.iter().take(MAP_MAX_PER_KIND).enumerate() {
         let id = format!("g:mcp:{i}");
@@ -268,11 +267,10 @@ pub fn context_map(project_path: &str, claude_md_rel: &str) -> ClaudeContextMap 
             edges.push(mk_edge(p_root, "p:perms", "registers"));
             edges.push(mk_edge("p:perms", "g:perms", "override"));
         }
-        for (i, h) in parse_hooks(&psettings).into_iter().take(MAP_MAX_PER_KIND).enumerate() {
-            let id = format!("p:hook:{i}");
-            let label = if h.matcher.is_empty() { h.event.clone() } else { format!("{} {}", h.event, h.matcher) };
-            nodes.push(mk_node(&id, "hook", "project", &label, "", "added"));
-            edges.push(mk_edge(p_root, &id, "registers"));
+        let phooks = parse_hooks(&psettings);
+        if !phooks.is_empty() {
+            nodes.push(mk_node("p:hooks", "hook", "project", "hooks", &format!("×{}", phooks.len()), "added"));
+            edges.push(mk_edge(p_root, "p:hooks", "registers"));
         }
     }
     let pmcp = parse_mcp(&read_json(&proot.join(".mcp.json")), ".mcp.json");
@@ -413,6 +411,22 @@ fn parse_mcp(src: &Option<Value>, source: &str) -> Vec<ClaudeMcpServer> {
     out
 }
 
+/// First non-empty, non-frontmatter line of a markdown file → a one-line description.
+fn first_desc(path: &Path) -> String {
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|t| {
+            t.lines()
+                .find(|l| !l.trim().is_empty() && !l.starts_with("---"))
+                .map(|l| l.trim_start_matches('#').trim().to_string())
+        })
+        .unwrap_or_default()
+}
+
+fn rel_path(path: &Path, base: &Path) -> String {
+    path.strip_prefix(base).unwrap_or(path).to_string_lossy().replace('\\', "/")
+}
+
 fn list_commands(dir: &Path, base: &Path) -> Vec<ClaudeCommand> {
     let mut out = vec![];
     let Ok(entries) = fs::read_dir(dir) else {
@@ -421,30 +435,49 @@ fn list_commands(dir: &Path, base: &Path) -> Vec<ClaudeCommand> {
     for e in entries.flatten() {
         let path = e.path();
         if path.extension().and_then(|x| x.to_str()) == Some("md") {
-            let rel = path
-                .strip_prefix(base)
-                .unwrap_or(&path)
-                .to_string_lossy()
-                .replace('\\', "/");
             let name = path
                 .file_stem()
                 .map(|s| s.to_string_lossy().to_string())
                 .unwrap_or_default();
-            let description = fs::read_to_string(&path)
-                .ok()
-                .and_then(|t| {
-                    t.lines()
-                        .find(|l| !l.trim().is_empty() && !l.starts_with("---"))
-                        .map(|l| l.trim_start_matches('#').trim().to_string())
-                })
-                .unwrap_or_default();
             out.push(ClaudeCommand {
                 name,
-                path: rel,
-                description,
+                path: rel_path(&path, base),
+                description: first_desc(&path),
             });
         }
     }
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
+}
+
+/// Skills: a subdir holding SKILL.md (name = dir, opens its SKILL.md) or a top-level *.md.
+fn list_skills(dir: &Path, base: &Path) -> Vec<ClaudeCommand> {
+    let mut out = vec![];
+    let Ok(entries) = fs::read_dir(dir) else {
+        return out;
+    };
+    for e in entries.flatten() {
+        let path = e.path();
+        if path.is_dir() {
+            let skill = path.join("SKILL.md");
+            if skill.exists() {
+                let name = path.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+                out.push(ClaudeCommand {
+                    name,
+                    path: rel_path(&skill, base),
+                    description: first_desc(&skill),
+                });
+            }
+        } else if path.extension().and_then(|x| x.to_str()) == Some("md") {
+            let name = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+            out.push(ClaudeCommand {
+                name,
+                path: rel_path(&path, base),
+                description: first_desc(&path),
+            });
+        }
+    }
+    out.sort_by(|a, b| a.name.cmp(&b.name));
     out
 }
 
@@ -490,6 +523,8 @@ pub fn global() -> GlobalClaudeConfig {
         m
     };
     cfg.commands = list_commands(&dir.join("commands"), &dir);
+    cfg.skills = list_skills(&dir.join("skills"), &dir);
+    cfg.agents = list_commands(&dir.join("agents"), &dir);
     cfg
 }
 

@@ -54,6 +54,10 @@ function sectionFor(kind: string): string | null {
       return 'mcp'
     case 'command':
       return 'commands'
+    case 'skill':
+      return 'skills'
+    case 'agent':
+      return 'agents'
     default:
       return null
   }

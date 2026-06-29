@@ -220,6 +220,10 @@ pub struct GlobalClaudeConfig {
     #[serde(rename = "mcpServers")]
     pub mcp_servers: Vec<ClaudeMcpServer>,
     pub commands: Vec<ClaudeCommand>,
+    // skills + agents reuse the ClaudeCommand shape (name/path/description) so they can be
+    // listed and opened via readClaudeFile, exactly like commands.
+    pub skills: Vec<ClaudeCommand>,
+    pub agents: Vec<ClaudeCommand>,
 }
 
 #[derive(Clone, Serialize)]
