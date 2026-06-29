@@ -559,3 +559,54 @@ pub fn latest_cwd_states() -> Vec<(String, u64, String)> {
 pub fn ignore() -> OpResult {
     OpResult { ok: true, error: String::new() }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    fn write_lines(path: &Path, lines: &[String]) {
+        let mut f = fs::File::create(path).unwrap();
+        for l in lines {
+            writeln!(f, "{l}").unwrap();
+        }
+    }
+
+    #[test]
+    fn latest_states_merges_prioritizes_recency_and_staleness() {
+        // Point HOME at a temp dir so od_dir() resolves there — never touch real logs.
+        let tmp = std::env::temp_dir().join(format!("orbisdeck-test-{}", std::process::id()));
+        let od = tmp.join(".claude").join("orbisdeck");
+        fs::create_dir_all(&od).unwrap();
+        std::env::set_var("HOME", &tmp);
+
+        let now = now_ms();
+        write_lines(
+            &od.join("state.jsonl"),
+            &[
+                // A: busy then idle (idle newer) -> idle
+                format!(r#"{{"ts":{},"cwd":"/proj/a","kind":"busy"}}"#, now - 5000),
+                format!(r#"{{"ts":{},"cwd":"/proj/a","kind":"idle"}}"#, now - 1000),
+                // B: recent busy -> working
+                format!(r#"{{"ts":{},"cwd":"/proj/b","kind":"busy"}}"#, now - 2000),
+                // D: busy but >30min old -> staleness backstop -> idle
+                format!(r#"{{"ts":{},"cwd":"/proj/d","kind":"busy"}}"#, now - 31 * 60 * 1000),
+            ],
+        );
+        write_lines(
+            &od.join("notify.jsonl"),
+            // C: waiting via Notification
+            &[format!(r#"{{"ts":{},"cwd":"/proj/c","message":"x"}}"#, now - 1500)],
+        );
+
+        let states: std::collections::HashMap<String, String> =
+            latest_cwd_states().into_iter().map(|(c, _, s)| (c, s)).collect();
+
+        assert_eq!(states.get("/proj/a").map(String::as_str), Some("idle"));
+        assert_eq!(states.get("/proj/b").map(String::as_str), Some("working"));
+        assert_eq!(states.get("/proj/c").map(String::as_str), Some("waiting"));
+        assert_eq!(states.get("/proj/d").map(String::as_str), Some("idle"));
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+}
