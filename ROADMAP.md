@@ -215,28 +215,73 @@ else is pleasant sugar over tmux. The honest signal **already flows** — the `N
 writes `~/.claude/orbisdeck/notify.jsonl`; today it only fires an OS notification. The build is
 mostly wiring data that already exists, not a new agent system.
 
+### Council round 2 (post-v0.7.0) — code-grounded audit
+
+> Reconvened the council with the specialists READING THE REAL CODE, not just the brief.
+> Two corrections to round 1 + a P0 bug list + refined M8 split.
+
+**Correction that matters most (Engineer, verified in `agents.rs`):** the round-1 assumption
+"`PreToolUse`/`Notification`/`SubagentStop` already flow, build a 3-state machine on them" is
+**half-wrong**. Only `Notification` (→ waiting) flows honestly. `PreToolUse` is installed with
+matcher `Task|Agent` (subagents only) — there is NO general "Claude is working" signal, and no
+`Stop`/`UserPromptSubmit`/`SessionEnd`. An honest `working`/`idle` cannot be derived from current
+events. Do NOT fake `working` from `pgrep`/pty activity — that is the forbidden invented signal.
+Fix is cheap and honest: add a few hooks.
+
+**P0 bugs to fix regardless of M8 (CTO + Engineer, with file refs):**
+- **Unbounded hook logs + full reread.** `~/.claude/orbisdeck/agents.jsonl`/`notify.jsonl` only
+  ever `appendFileSync` (no rotation); `read_events` / `read_notifications_since` do
+  `fs::read_to_string` of the WHOLE file every 1.5s (notify poller) / 2s (agents panel). Becomes
+  a scaling wall and the hot path under M8. Fix: tail-capped reads (like the transcript
+  `READ_CAP`) + size-based rotation/compaction. **(P0 — do first.)**
+- **FIFO correlation ignores `session_id`.** `read_events` pairs stop→oldest-open via
+  `open.remove(0)` though the hook already writes `session_id`. Use it.
+- **Silent `persist` failure** (`store.rs` `let _ = …`) — a command center can't silently fail to
+  save state. Log + surface.
+- **`claude_chain` is the one un-sandboxed reader** — follows `@import` to any path on disk.
+  Align to the project-root ∪ `~/.claude` sandbox the other readers use.
+- Nested-project prefix match (`cwd.starts_with("{path}/")`) zings the parent too → longest-prefix.
+
 ### M8 — Cross-project attention router · NEXT (the one sanctioned DEEPEN bet)
 
-- **Fleet-status (~week).** Lift `notify.jsonl`/`agents.jsonl` from one-shot OS notification into
-  a **per-project state** above the tabs: three honest, *observed* states only —
-  `working` (fresh `PreToolUse`) · `waiting since X` (`Notification` with no follow-up) ·
-  `idle/done`. No "progress"/ETA (not honestly observable). This finally fills IDEA.md
-  Scenario 3 (Agents) from real data, not pty-scraping.
-- **Jump-to-waiting hotkey.** Global hotkey → jump to the longest-waiting session (reuse the
-  existing `notify-activate` / `setActiveProject` mechanics).
-- **Cheap seam to lay now (CTO).** session-id correlation terminal↔agent + a separate
-  append-only run-store (`~/.claude/orbisdeck/runs.jsonl`), **not** in the config JSON blob.
-  Small, non-committing, keeps run-state out of the config store before it bloats.
-- **New honest metric (User Researcher).** Instrument the loop: does notification→jump actually
-  fire, and do you use it? Replaces the spent "5 days straight" gate. If it rarely fires, the
-  parallelism thesis is weaker than it looks — name it honestly then.
-- **Cheap adjacent (optional).** Editable CLAUDE.md (project + global) via the atomic+backup
-  writer that already exists — closes the loop with the context inspector. Only if a real
-  "ugh, went to edit it by hand again" pain shows up.
+Build as two slices behind the Executive gate (don't build the big version on faith):
 
-**Triggers that change this:** a concrete second user asks → reconsider BROADEN; catching
-yourself leaving the app 3+×/week to do what the cockpit could → full DEEPEN; a week of not
-opening Settings/roadmap to add anything → it's done, freeze and use it (success, not failure).
+- **M8.0 — Slice 0 (~1 day, no hook changes, near-zero risk).** Turn the already-honest
+  `notify.jsonl` waiting signal from a transient flash into a **persistent per-project state**:
+  badge/colored dot that stays until the project is focused, + **seed current waiting on app
+  start** (read the `notify.jsonl` tail once — today a project that was waiting before launch
+  shows nothing). This IS the minimal cross-project attention router, from data that already
+  ships. Pair with the **P0 tail-cap fix** (it's the hot path).
+- **Instrument the loop (new honest gate).** Count notify→jump: does it fire, do you use it?
+  Replaces the spent "5 days straight" gate.
+- **THE GATE (Executive).** Then a week of honest use, counting: *how many times was I actually
+  blocked by not noticing a waiting session in another project?* **≥3/week → build M8.1.
+  <3/week → declare v1 done, freeze, go work the real projects (success, not capitulation).**
+- **M8.1 — Slice 1 (2–4 days, gated).** Add honest `working`/`idle`: install
+  `UserPromptSubmit`→working, `Stop`/`SessionEnd`→idle hooks, write to a NEW `state.jsonl`
+  (don't touch `agents.jsonl`); update `status().installed` + reinstall hooks idempotently. New
+  `get_project_states()` — tail-read + reduce per `cwd` (longest-prefix), priority
+  `waiting > working > idle`, with a **staleness timeout** (working older than ~15 min → idle, so
+  a crashed session without `Stop` doesn't hang). Colored status strip over the tabs that
+  **retires the empty Agents panel** (UR). Build on a read-side run-store module
+  (`runstore.rs`) that owns incremental byte-offset tail + rotation + session correlation —
+  **outside** `cockpit-state.json`.
+
+### Other threads (user-directed, round 2) — roadmap, not committed
+
+- **Context graph — KEEP, but reshape (user call).** Don't cut it. Remove the non-actionable
+  noise nodes (session start/stop, permissions — "непросматриваемое"); on the other side ADD a
+  browsable view of **skills + agents** that exist, with the ability to edit them when needed.
+  Shifts the graph from a static `@import` art piece toward an actionable skills/agents surface.
+- **$EDITOR bridge (UR's "second silent exit": review→edit→commit).** "Open this file in
+  $EDITOR at this line" from diff/tree + a quick stage/commit delegated to the terminal. A
+  bridge, NOT an own editor/git client (v1 boundary holds). Roadmap.
+- **Inline config editing (user).** Let configs (settings/CLAUDE.md/etc.) be edited inline via
+  the existing atomic+backup writer, rather than read-only + deep-link out. Roadmap.
+
+**Triggers that change this:** a concrete second user asks → reconsider BROADEN; blocked 3+×/week
+by an unnoticed waiting session → build M8.1; a week of not opening Settings/roadmap to add
+anything → it's done, freeze and use it (success, not failure).
 
 ## What we deliberately won't do
 
@@ -256,10 +301,14 @@ opening Settings/roadmap to add anything → it's done, freeze and use it (succe
 - **(post-M7) No distribution / notarize / auto-update** until a real second user. Auto-update
   especially = signing keys + endpoint + manifest + permanent maintenance for ~zero single-user
   value. Sign+notarize stays a one-off "on demand" task, not a milestone.
-- **(post-M7) No deeper context-inspector** (element write-back / managed toggles). It's a
-  debug tool, not a daily habit; max polish = global-vs-project delta highlighting.
+- **(post-M7) No fake `working` signal** — never derive "Claude is working" from `pgrep`/pty
+  activity. `working`/`idle` must come from real hook events (`UserPromptSubmit`/`Stop`), or not
+  at all. (Round 2 supersedes the round-1 "deeper context-inspector is out": the user DID greenlight
+  reshaping the context graph toward actionable skills/agents editing + inline config editing —
+  see "Other threads". The discipline that remains: actionable, not another static visualization.)
 - **(post-M7) No structured write-back into `~/.claude.json`** — it's parsed partially (mcp
-  only, under cap); writing over a partial parse risks data loss.
+  only, under cap); writing over a partial parse risks data loss. (Inline editing of the smaller
+  config files — settings.json, CLAUDE.md — via atomic+backup is fine; the big blob is not.)
 
 ---
 

@@ -74,6 +74,34 @@ fn tail_read(path: &Path) -> Option<String> {
     Some(String::from_utf8_lossy(s).to_string())
 }
 
+// Hook event logs (agents.jsonl / notify.jsonl) are append-only with no rotation, yet the
+// notify poller rereads them every ~1.5s. Read only the tail, and compact the file in place
+// (atomic tmp+rename) once it grows past the rotate threshold, so the hot path never rereads
+// an unbounded file. A few appends racing the rename may be dropped — acceptable for an
+// event log whose only consumers are "recent state" queries.
+const LOG_TAIL_CAP: usize = 256 * 1024;
+const LOG_ROTATE_AT: u64 = 1024 * 1024;
+
+fn read_log_capped(path: &Path) -> String {
+    let Ok(data) = fs::read(path) else { return String::new() };
+    let truncated = data.len() > LOG_TAIL_CAP;
+    let slice = if truncated { &data[data.len() - LOG_TAIL_CAP..] } else { &data[..] };
+    // when we cut mid-stream, drop the partial leading line so the first parse doesn't fail
+    let start = if truncated {
+        slice.iter().position(|&b| b == b'\n').map(|i| i + 1).unwrap_or(0)
+    } else {
+        0
+    };
+    let kept = &slice[start..];
+    if data.len() as u64 > LOG_ROTATE_AT {
+        let tmp = path.with_extension("jsonl.tmp");
+        if fs::write(&tmp, kept).is_ok() {
+            let _ = fs::rename(&tmp, path);
+        }
+    }
+    String::from_utf8_lossy(kept).to_string()
+}
+
 pub fn get_agents(project_path: &str) -> Vec<AgentInfo> {
     if project_path.is_empty() {
         return vec![];
@@ -345,7 +373,10 @@ pub fn uninstall() -> AgentHooksStatus {
 
 pub fn read_events(project_path: &str) -> Vec<AgentInfo> {
     let path = od_dir().join("agents.jsonl");
-    let Ok(text) = fs::read_to_string(&path) else { return vec![] };
+    let text = read_log_capped(&path);
+    if text.is_empty() {
+        return vec![];
+    }
     let cutoff = now_ms().saturating_sub(NOTIFY_RUNNING_MS);
     let mut open: Vec<AgentInfo> = vec![];
     let mut done: Vec<AgentInfo> = vec![];
@@ -404,7 +435,10 @@ pub fn read_events(project_path: &str) -> Vec<AgentInfo> {
 /// Notification events newer than `since` (epoch ms): (ts, cwd, message).
 pub fn read_notifications_since(since: u64) -> Vec<(u64, String, String)> {
     let path = od_dir().join("notify.jsonl");
-    let Ok(text) = fs::read_to_string(&path) else { return vec![] };
+    let text = read_log_capped(&path);
+    if text.is_empty() {
+        return vec![];
+    }
     let mut out = vec![];
     for line in text.lines() {
         if line.trim().is_empty() {
