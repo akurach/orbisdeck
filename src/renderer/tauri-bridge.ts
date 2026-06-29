@@ -57,6 +57,7 @@ export async function installTauriCockpit(): Promise<void> {
     installAgentHooks: () => invoke('install_agent_hooks'),
     uninstallAgentHooks: () => invoke('uninstall_agent_hooks'),
     markAgentHooksPrompted: () => invoke('mark_agent_hooks_prompted'),
+    getWaitingProjects: () => invoke('get_waiting_projects'),
     getNote: (projectId) => invoke('get_note', { projectId }),
     setNote: (projectId, text) => invoke('set_note', { projectId, text }),
 

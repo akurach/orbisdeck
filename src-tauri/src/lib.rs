@@ -326,6 +326,28 @@ fn reorder_projects(store: State<Store>, ids: Vec<String>) {
 fn mark_agent_hooks_prompted(store: State<Store>) {
     store.mark_hooks_prompted();
 }
+/// Projects whose Claude is currently awaiting input — the latest Notification per project
+/// within a freshness window. Lets the renderer seed waiting badges on startup, so a project
+/// that was already waiting before the app launched still shows (the live poller only sees
+/// events newer than launch). M8.0.
+#[tauri::command]
+fn get_waiting_projects(store: State<Store>) -> Vec<String> {
+    const WAIT_WINDOW_MS: u64 = 6 * 60 * 60 * 1000;
+    let since = now_ms().saturating_sub(WAIT_WINDOW_MS);
+    let st = store.get_state();
+    let mut seen = std::collections::HashSet::new();
+    let mut out = vec![];
+    for (_ts, cwd, _msg) in agents::read_notifications_since(since) {
+        if let Some(p) = st.projects.iter().find(|p| {
+            cwd == p.settings.path || cwd.starts_with(&format!("{}/", p.settings.path))
+        }) {
+            if seen.insert(p.id.clone()) {
+                out.push(p.id.clone());
+            }
+        }
+    }
+    out
+}
 #[tauri::command]
 fn get_note(store: State<Store>, project_id: String) -> String {
     store.get_note(&project_id)
@@ -592,6 +614,7 @@ pub fn run() {
             set_active_project,
             reorder_projects,
             mark_agent_hooks_prompted,
+            get_waiting_projects,
             get_note,
             set_note,
             get_git_summary,

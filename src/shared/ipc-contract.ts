@@ -78,6 +78,9 @@ export interface CockpitApi {
   uninstallAgentHooks(): Promise<AgentHooksStatus>
   /** Remember that the one-time live-agents offer was shown. */
   markAgentHooksPrompted(): Promise<void>
+  /** Projects whose Claude is awaiting input now (latest Notification within a window).
+   *  Seeds waiting badges on startup — the live poller only sees post-launch events. */
+  getWaitingProjects(): Promise<ProjectId[]>
 
   // --- notes (M6): per-project free text ---
   getNote(projectId: ProjectId): Promise<string>

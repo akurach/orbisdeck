@@ -33,6 +33,26 @@ export function App(): JSX.Element {
     })
   }, [activeId])
 
+  // Seed waiting badges on startup: a project that was already awaiting input before launch
+  // is invisible to the live poller (it only sees post-launch events). M8.0.
+  useEffect(() => {
+    if (!cockpit.ready) return
+    let alive = true
+    window.cockpit.getWaitingProjects().then((ids) => {
+      if (!alive) return
+      setNotifyBadges((prev) => {
+        const next = new Set(prev)
+        for (const id of ids) if (id !== activeId) next.add(id)
+        return next
+      })
+    })
+    return () => {
+      alive = false
+    }
+    // run once on ready; activeId read at call time, clear-on-active effect handles the rest
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cockpit.ready])
+
   // Clicking the OS "awaiting input" notification jumps straight to that project.
   const setActiveProject = cockpit.setActiveProject
   useEffect(() => {
