@@ -52,6 +52,18 @@ export function App(): JSX.Element {
     })
   }, [activeId])
 
+  // Cmd+, opens App Settings (macOS convention).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault()
+        setAppSettings(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   // Clicking the OS "awaiting input" notification jumps straight to that project.
   const setActiveProject = cockpit.setActiveProject
   useEffect(() => {

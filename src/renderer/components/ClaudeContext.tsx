@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ClaudeChainFile, GlobalClaudeConfig, ProjectId } from '../../shared/types'
 import { ClaudeElements } from './ClaudeElements'
+import { ClaudeContextGraph } from './ClaudeContextGraph'
 import { useT } from '../i18n'
 
 interface Props {
@@ -40,6 +41,16 @@ export function ClaudeContext({ projectId, onOpenGlobal }: Props): JSX.Element {
   return (
     <div className="claude-context">
       <p className="cctx-intro">{t('cctx.intro')}</p>
+
+      {/* The assembly map for THIS project: global vs project, with what the project adds (+)
+          or overrides (Δ). This is where the override/delta view belongs (Global Claude is
+          global-only). Clicking a node opens the Global Claude editors. */}
+      <section className="cctx-layer">
+        <div className="cctx-layer-head">
+          <span className="cctx-scope">{t('cctx.scopeMap')}</span>
+        </div>
+        <ClaudeContextGraph projectId={projectId} onOpenSection={() => onOpenGlobal()} />
+      </section>
 
       <section className="cctx-layer">
         <div className="cctx-layer-head">
