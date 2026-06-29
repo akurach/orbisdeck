@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ProjectActivity } from '../shared/types'
 import { useCockpit } from './state/useCockpit'
 import { useLayout } from './state/useLayout'
 import { ProjectTabs } from './components/ProjectTabs'
@@ -22,36 +23,34 @@ export function App(): JSX.Element {
   const activeId = cockpit.activeProject?.id ?? null
   const layout = useLayout(activeId ?? '__none__')
   const [hooksOffer, setHooksOffer] = useState(false)
-  const [notifyBadges, setNotifyBadges] = useState<Set<string>>(new Set())
+  const [projectStates, setProjectStates] = useState<Record<string, ProjectActivity>>({})
 
-  // Tab badge when a non-active project's Claude awaits input (Notification hook).
-  useEffect(() => {
-    return window.cockpit.onNotify((e) => {
-      if (e.projectId && e.projectId !== activeId) {
-        setNotifyBadges((prev) => new Set(prev).add(e.projectId as string))
-      }
-    })
-  }, [activeId])
-
-  // Seed waiting badges on startup: a project that was already awaiting input before launch
-  // is invisible to the live poller (it only sees post-launch events). M8.0.
+  // Poll per-project attention status (working/waiting/idle) from the hook logs (M8.1).
+  // Runs immediately on ready (subsumes the startup waiting-seed) then every 2s.
   useEffect(() => {
     if (!cockpit.ready) return
     let alive = true
-    window.cockpit.getWaitingProjects().then((ids) => {
-      if (!alive) return
-      setNotifyBadges((prev) => {
-        const next = new Set(prev)
-        for (const id of ids) if (id !== activeId) next.add(id)
-        return next
+    const tick = (): void => {
+      window.cockpit.getProjectStates().then((s) => {
+        if (alive) setProjectStates(s)
       })
-    })
+    }
+    tick()
+    const h = setInterval(tick, 2000)
     return () => {
       alive = false
+      clearInterval(h)
     }
-    // run once on ready; activeId read at call time, clear-on-active effect handles the rest
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cockpit.ready])
+
+  // Instant waiting on a Notification (don't wait for the next poll) for non-active projects.
+  useEffect(() => {
+    return window.cockpit.onNotify((e) => {
+      if (e.projectId && e.projectId !== activeId) {
+        setProjectStates((prev) => ({ ...prev, [e.projectId as string]: 'waiting' }))
+      }
+    })
+  }, [activeId])
 
   // Clicking the OS "awaiting input" notification jumps straight to that project.
   const setActiveProject = cockpit.setActiveProject
@@ -61,13 +60,14 @@ export function App(): JSX.Element {
     })
   }, [setActiveProject])
 
-  // Clear a project's badge once it becomes active.
+  // Focusing a waiting project acknowledges it — drop the waiting status (the poll refills the
+  // real working/idle within ~2s). Working/idle on the active project stay as-is.
   useEffect(() => {
     if (!activeId) return
-    setNotifyBadges((prev) => {
-      if (!prev.has(activeId)) return prev
-      const next = new Set(prev)
-      next.delete(activeId)
+    setProjectStates((prev) => {
+      if (prev[activeId] !== 'waiting') return prev
+      const next = { ...prev }
+      delete next[activeId]
       return next
     })
   }, [activeId])
@@ -162,7 +162,7 @@ export function App(): JSX.Element {
           onAdd={() => setAdding(true)}
           onClose={cockpit.removeProject}
           onReorder={cockpit.reorderProjects}
-          badges={notifyBadges}
+          states={projectStates}
         />
         <div className="topbar-right">
           <button className="btn global-claude-btn" onClick={() => setGlobalClaude(true)}>

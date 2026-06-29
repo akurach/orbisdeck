@@ -18,6 +18,7 @@ import type {
   DockerAction,
   DockerStatus,
   FileContent,
+  ProjectActivity,
   GitSummary,
   GlobalClaudeConfig,
   Project,
@@ -81,6 +82,9 @@ export interface CockpitApi {
   /** Projects whose Claude is awaiting input now (latest Notification within a window).
    *  Seeds waiting badges on startup — the live poller only sees post-launch events. */
   getWaitingProjects(): Promise<ProjectId[]>
+  /** Per-project attention status from the hook state/notify logs (M8.1). Projects absent
+   *  from the map are idle. Polled to drive the colored tab status dots. */
+  getProjectStates(): Promise<Record<ProjectId, ProjectActivity>>
 
   // --- notes (M6): per-project free text ---
   getNote(projectId: ProjectId): Promise<string>

@@ -166,6 +166,13 @@ body {
   background: var(--accent);
   flex: none;
 }
+/* Attention status (M8.1): yellow = waiting on you, green = Claude working. */
+.project-tab-badge.waiting {
+  background: #d6a700;
+}
+.project-tab-badge.working {
+  background: #3fb950;
+}
 
 .project-tab-close {
   display: inline-flex;

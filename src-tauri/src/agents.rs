@@ -227,7 +227,7 @@ const HOOK_SCRIPT: &str = r#"import { appendFileSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-const mode = process.argv[2] // 'start' | 'stop' | 'notify'
+const mode = process.argv[2] // 'start' | 'stop' | 'notify' | 'busy' | 'idle'
 let raw = ''
 process.stdin.on('data', (d) => (raw += d))
 process.stdin.on('end', () => {
@@ -238,6 +238,10 @@ process.stdin.on('end', () => {
   if (mode === 'notify') {
     const line = JSON.stringify({ ts: Date.now(), cwd: p.cwd || '', session: p.session_id || '', message: p.message || 'Claude ждёт ответа' }) + '\n'
     try { appendFileSync(join(dir, 'notify.jsonl'), line) } catch {}
+  } else if (mode === 'busy' || mode === 'idle') {
+    // attention state: working between UserPromptSubmit (busy) and Stop/SessionEnd (idle)
+    const line = JSON.stringify({ ts: Date.now(), cwd: p.cwd || '', session: p.session_id || '', kind: mode }) + '\n'
+    try { appendFileSync(join(dir, 'state.jsonl'), line) } catch {}
   } else {
     const ti = p.tool_input || {}
     const line = JSON.stringify({ event: mode, ts: Date.now(), cwd: p.cwd || '', session: p.session_id || '', type: ti.subagent_type || '', description: ti.description || '' }) + '\n'
@@ -296,7 +300,10 @@ pub fn status() -> AgentHooksStatus {
             .unwrap_or(false)
     };
     AgentHooksStatus {
-        installed: has("PreToolUse") && has("SubagentStop"),
+        installed: has("PreToolUse")
+            && has("SubagentStop")
+            && has("UserPromptSubmit")
+            && has("Stop"),
     }
 }
 
@@ -344,15 +351,47 @@ pub fn install() -> AgentHooksStatus {
         "Notification",
         serde_json::json!({ "hooks": [{ "type": "command", "command": hook_cmd("notify") }] }),
     );
+    // M8.1 attention state: working between a prompt and the stop, idle on end.
+    ensure(
+        hooks,
+        "UserPromptSubmit",
+        serde_json::json!({ "hooks": [{ "type": "command", "command": hook_cmd("busy") }] }),
+    );
+    ensure(
+        hooks,
+        "Stop",
+        serde_json::json!({ "hooks": [{ "type": "command", "command": hook_cmd("idle") }] }),
+    );
+    ensure(
+        hooks,
+        "SessionEnd",
+        serde_json::json!({ "hooks": [{ "type": "command", "command": hook_cmd("idle") }] }),
+    );
 
     let _ = write_settings_value(&s);
     AgentHooksStatus { installed: true }
 }
 
+/// If the hooks were ever installed, re-run install() to add any newly-introduced hooks and
+/// refresh the script. Idempotent (ensure() only adds what's missing). Called on startup so
+/// existing users get the M8.1 state hooks without being re-prompted.
+pub fn upgrade_hooks_if_present() {
+    if hook_path().exists() {
+        let _ = install();
+    }
+}
+
 pub fn uninstall() -> AgentHooksStatus {
     let mut s = read_settings_value();
     if let Some(hooks) = s.get_mut("hooks").and_then(|h| h.as_object_mut()) {
-        for key in ["PreToolUse", "SubagentStop", "Notification"] {
+        for key in [
+            "PreToolUse",
+            "SubagentStop",
+            "Notification",
+            "UserPromptSubmit",
+            "Stop",
+            "SessionEnd",
+        ] {
             if let Some(arr) = hooks.get_mut(key).and_then(|a| a.as_array_mut()) {
                 arr.retain(|e| !entry_is_ours(e));
             }
@@ -456,6 +495,64 @@ pub fn read_notifications_since(since: u64) -> Vec<(u64, String, String)> {
         }
     }
     out
+}
+
+/// Latest attention status per cwd: (cwd, ts, status) where status ∈ working|waiting|idle.
+/// Merges state.jsonl (busy→working / idle) and notify.jsonl (waiting); newest event per cwd
+/// wins. A `working` whose event is older than STALE_MS is downgraded to idle — a crash
+/// backstop so a session that died without a Stop hook doesn't hang as "working" forever.
+/// M8.1. (lib.rs maps cwd→project via longest-prefix and reduces per project.)
+pub fn latest_cwd_states() -> Vec<(String, u64, String)> {
+    use std::collections::HashMap;
+    const STALE_MS: u64 = 30 * 60 * 1000;
+    let now = now_ms();
+    let mut latest: HashMap<String, (u64, String)> = HashMap::new();
+    let mut consider = |ts: u64, cwd: &str, status: &str| {
+        if cwd.is_empty() {
+            return;
+        }
+        let e = latest.entry(cwd.to_string()).or_insert((0, String::new()));
+        if ts >= e.0 {
+            *e = (ts, status.to_string());
+        }
+    };
+
+    let states = read_log_capped(&od_dir().join("state.jsonl"));
+    for line in states.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let Ok(e) = serde_json::from_str::<Value>(line) else { continue };
+        let ts = e.get("ts").and_then(|t| t.as_u64()).unwrap_or(0);
+        let cwd = e.get("cwd").and_then(|c| c.as_str()).unwrap_or("");
+        let status = match e.get("kind").and_then(|k| k.as_str()).unwrap_or("") {
+            "busy" => "working",
+            "idle" => "idle",
+            _ => continue,
+        };
+        consider(ts, cwd, status);
+    }
+
+    let notifs = read_log_capped(&od_dir().join("notify.jsonl"));
+    for line in notifs.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let Ok(e) = serde_json::from_str::<Value>(line) else { continue };
+        let ts = e.get("ts").and_then(|t| t.as_u64()).unwrap_or(0);
+        let cwd = e.get("cwd").and_then(|c| c.as_str()).unwrap_or("");
+        consider(ts, cwd, "waiting");
+    }
+
+    latest
+        .into_iter()
+        .map(|(cwd, (ts, mut status))| {
+            if status == "working" && now.saturating_sub(ts) > STALE_MS {
+                status = "idle".to_string();
+            }
+            (cwd, ts, status)
+        })
+        .collect()
 }
 
 #[allow(dead_code)]

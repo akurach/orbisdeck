@@ -348,6 +348,32 @@ fn get_waiting_projects(store: State<Store>) -> Vec<String> {
     }
     out
 }
+/// Per-project attention status (working|waiting|idle) from the hook state/notify logs.
+/// Maps each cwd to its project by longest-prefix (so a nested project wins over its parent)
+/// and keeps the newest event per project. Projects with no recent events are absent (= idle).
+/// M8.1.
+#[tauri::command]
+fn get_project_states(store: State<Store>) -> std::collections::HashMap<String, String> {
+    let st = store.get_state();
+    let mut best: std::collections::HashMap<String, (u64, String)> =
+        std::collections::HashMap::new();
+    for (cwd, ts, status) in agents::latest_cwd_states() {
+        let proj = st
+            .projects
+            .iter()
+            .filter(|p| {
+                cwd == p.settings.path || cwd.starts_with(&format!("{}/", p.settings.path))
+            })
+            .max_by_key(|p| p.settings.path.len());
+        if let Some(p) = proj {
+            let e = best.entry(p.id.clone()).or_insert((0, String::new()));
+            if ts >= e.0 {
+                *e = (ts, status);
+            }
+        }
+    }
+    best.into_iter().map(|(id, (_, s))| (id, s)).collect()
+}
 #[tauri::command]
 fn get_note(store: State<Store>, project_id: String) -> String {
     store.get_note(&project_id)
@@ -544,6 +570,10 @@ pub fn run() {
             }
         })
         .setup(|app| {
+            // If hooks were ever installed, refresh them so existing users pick up the M8.1
+            // state hooks (UserPromptSubmit/Stop/SessionEnd) without a re-prompt. Idempotent.
+            agents::upgrade_hooks_if_present();
+
             // Notification poller: tail the Notification-hook log, emit a "notify" event
             // (the renderer shows a tab badge). Seeded with "now" so old entries don't replay.
             let handle = app.handle().clone();
@@ -615,6 +645,7 @@ pub fn run() {
             reorder_projects,
             mark_agent_hooks_prompted,
             get_waiting_projects,
+            get_project_states,
             get_note,
             set_note,
             get_git_summary,

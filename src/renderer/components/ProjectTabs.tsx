@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react'
-import type { Project, ProjectId } from '../../shared/types'
+import type { Project, ProjectActivity, ProjectId } from '../../shared/types'
 import { moveItem, useTabReorder } from '../state/useTabReorder'
 import { useT } from '../i18n'
 
@@ -10,7 +10,7 @@ interface Props {
   onAdd: () => void
   onClose: (id: ProjectId) => void
   onReorder: (ids: ProjectId[]) => void
-  badges: Set<string>
+  states: Record<string, ProjectActivity>
 }
 
 export function ProjectTabs({
@@ -20,7 +20,7 @@ export function ProjectTabs({
   onAdd,
   onClose,
   onReorder,
-  badges
+  states
 }: Props): JSX.Element {
   const t = useT()
   const dragTab = useTabReorder((from, to) =>
@@ -32,20 +32,29 @@ export function ProjectTabs({
   }
   return (
     <div className="project-tabs">
-      {projects.map((p, i) => (
+      {projects.map((p, i) => {
+        const status = states[p.id]
+        const dot = status === 'waiting' || status === 'working'
+        return (
         <div
           key={p.id}
           className={`project-tab ${p.id === activeId ? 'active' : ''}`}
           onClick={() => onSelect(p.id)}
           {...dragTab(i)}
         >
-          {badges.has(p.id) && <span className="project-tab-badge" title={t('tabs.waiting')} />}
+          {dot && (
+            <span
+              className={`project-tab-badge ${status}`}
+              title={t(status === 'working' ? 'tabs.working' : 'tabs.waiting')}
+            />
+          )}
           <span className="project-tab-name">{p.name}</span>
           <span className="project-tab-close" title={t('tabs.closeProject')} onClick={(e) => close(e, p)}>
             ×
           </span>
         </div>
-      ))}
+        )
+      })}
       <div className="project-tab add" onClick={onAdd} title={t('tabs.addProject')}>
         +
       </div>

@@ -4,6 +4,10 @@
 /** Stable project identity. NEVER the path or display name — both change. */
 export type ProjectId = string
 
+/** Per-project Claude attention status (M8.1). 'working' between a prompt and the stop,
+ *  'waiting' on a Notification, 'idle' otherwise. */
+export type ProjectActivity = 'working' | 'waiting' | 'idle'
+
 /** Stable terminal identity within a project. */
 export type TerminalId = string
 
