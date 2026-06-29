@@ -83,12 +83,16 @@ export function ClaudeContextGraph({ projectId, onOpenSection }: Props): JSX.Ele
     }
   }, [projectId])
 
-  // Settle a force layout synchronously; keep global pulled left, project right.
+  // Settle a force layout synchronously; with both scopes, pull global left / project right.
+  // Global-only (the Global Claude modal) centers everything instead.
   useEffect(() => {
     if (!map) return
+    const hasProject = map.nodes.some((n) => n.scope === 'project')
+    const homeX = (scope: string): number =>
+      !hasProject ? W * 0.5 : scope === 'global' ? W * 0.27 : W * 0.73
     const sim: SimNode[] = map.nodes.map((n) => ({
       ...n,
-      x: n.scope === 'global' ? W * 0.3 : W * 0.7,
+      x: homeX(n.scope),
       y: H / 2
     }))
     const links: SimLink[] = map.edges.map((e) => ({ source: e.from, target: e.to }))
@@ -102,7 +106,7 @@ export function ClaudeContextGraph({ projectId, onOpenSection }: Props): JSX.Ele
       )
       .force('charge', forceManyBody<SimNode>().strength(-280))
       .force('collide', forceCollide<SimNode>(36))
-      .force('x', forceX<SimNode>((d) => (d.scope === 'global' ? W * 0.27 : W * 0.73)).strength(0.2))
+      .force('x', forceX<SimNode>((d) => homeX(d.scope)).strength(0.2))
       .force('y', forceY<SimNode>(H / 2).strength(0.06))
       .stop()
     for (let i = 0; i < 340; i++) s.tick()
@@ -123,7 +127,7 @@ export function ClaudeContextGraph({ projectId, onOpenSection }: Props): JSX.Ele
     if (!d) return
     const dx = e.clientX - d.lastX
     const dy = e.clientY - d.lastY
-    if (Math.abs(dx) + Math.abs(dy) > 2) d.moved = true
+    if (Math.abs(dx) + Math.abs(dy) > 5) d.moved = true
     d.lastX = e.clientX
     d.lastY = e.clientY
     if (d.id) {
@@ -151,14 +155,15 @@ export function ClaudeContextGraph({ projectId, onOpenSection }: Props): JSX.Ele
   if (!map) return <div className="viewer-empty">{t('common.loading')}</div>
 
   const pos = new Map(nodes.map((n) => [n.id, n]))
+  const hasProject = map.nodes.some((n) => n.scope === 'project')
 
   return (
     <div className="ctx-graph">
       <div className="ctx-graph-legend">
         <span className="ctx-leg global">{t('map.global')}</span>
-        <span className="ctx-leg project">{t('map.project')}</span>
-        <span className="ctx-leg-delta">+ {t('map.added')}</span>
-        <span className="ctx-leg-delta">Δ {t('map.override')}</span>
+        {hasProject && <span className="ctx-leg project">{t('map.project')}</span>}
+        {hasProject && <span className="ctx-leg-delta">+ {t('map.added')}</span>}
+        {hasProject && <span className="ctx-leg-delta">Δ {t('map.override')}</span>}
         <span className="ctx-graph-hint">{t('map.hint')}</span>
       </div>
       <svg
@@ -169,7 +174,7 @@ export function ClaudeContextGraph({ projectId, onOpenSection }: Props): JSX.Ele
         onPointerUp={() => onPointerUp()}
         onWheel={onWheel}
       >
-        <line className="ctx-divider" x1={W / 2} y1={8} x2={W / 2} y2={H - 8} />
+        {hasProject && <line className="ctx-divider" x1={W / 2} y1={8} x2={W / 2} y2={H - 8} />}
         <g transform={`translate(${view.tx},${view.ty}) scale(${view.k})`}>
           {map.edges.map((e, i) => {
             const a = pos.get(e.from)

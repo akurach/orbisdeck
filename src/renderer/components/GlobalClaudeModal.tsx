@@ -60,7 +60,7 @@ function Code({ code, language }: { code: string; language: string }): JSX.Eleme
   )
 }
 
-export function GlobalClaudeModal({ onClose, projectId }: Props): JSX.Element {
+export function GlobalClaudeModal({ onClose }: Props): JSX.Element {
   const t = useT()
   const [cfg, setCfg] = useState<GlobalClaudeConfig | null>(null)
   const [section, setSection] = useState<Section>('map')
@@ -206,8 +206,10 @@ export function GlobalClaudeModal({ onClose, projectId }: Props): JSX.Element {
 
             <div className="claude-section-body">
               {section === 'map' && (
+                // Global Claude is the engine's GLOBAL config only — project overrides/deltas
+                // live in the per-project context inspector, not here. So the map is global-only.
                 <ClaudeContextGraph
-                  projectId={projectId}
+                  projectId={null}
                   onOpenSection={(s) => setSection(s as Section)}
                 />
               )}

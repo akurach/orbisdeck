@@ -530,16 +530,20 @@ pub fn global() -> GlobalClaudeConfig {
 
 pub fn read_file(rel: &str) -> FileContent {
     let dir = claude_dir();
-    let abs = dir.join(rel);
     let mut result = FileContent {
         path: rel.to_string(),
         ..Default::default()
     };
-    let canon = abs.canonicalize().unwrap_or(abs.clone());
-    let root = dir.canonicalize().unwrap_or(dir.clone());
-    if canon != root && !canon.starts_with(&root) {
-        return result; // escapes ~/.claude
+    // Block path traversal (no `..`, no absolute), but FOLLOW symlinks the user placed under
+    // ~/.claude — e.g. skills/agents that link out to an Obsidian vault. Canonicalizing the
+    // target rejected those (the resolved path escapes ~/.claude) and the file read empty.
+    if rel.is_empty()
+        || Path::new(rel).is_absolute()
+        || rel.split(['/', '\\']).any(|c| c == "..")
+    {
+        return result;
     }
+    let abs = dir.join(rel);
     if let Ok(data) = fs::read(&abs) {
         if data[..data.len().min(8192)].contains(&0) {
             result.binary = true;
