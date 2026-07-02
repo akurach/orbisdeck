@@ -38,6 +38,10 @@ const ru: Record<string, string> = {
   'appSettings.accentHint': 'Цвет активной вкладки и выделений во всём интерфейсе.',
   'appSettings.language': 'Язык',
   'appSettings.languageHint': 'Язык интерфейса. По умолчанию — язык системы.',
+  'appSettings.density': 'Плотность',
+  'appSettings.density.comfortable': 'Просторно',
+  'appSettings.density.compact': 'Плотно',
+  'appSettings.densityHint': 'Плотность списков и панелей. Терминал не меняется.',
   'appSettings.about': 'О программе',
   'appSettings.aboutTagline': 'Командный центр проектов — одно окно, полный контекст.',
   'appSettings.version': 'Версия {v}',
@@ -79,6 +83,13 @@ const ru: Record<string, string> = {
 
   // notes panel
   'notes.placeholder': 'Заметки по проекту — сохраняются автоматически…',
+  'notes.resumeLabel': 'Остановились на',
+
+  'search.title': 'Поиск по проектам',
+  'search.placeholder': 'Искать во всех проектах…',
+  'search.empty': 'Ничего не найдено',
+  'search.noRg': 'ripgrep (rg) не найден — установите его для поиска',
+  'search.truncated': 'Показаны не все совпадения',
 
   // terminal panel
   'terminal.title': 'Терминал',
@@ -311,6 +322,10 @@ const en: Record<string, string> = {
   'appSettings.accentHint': 'Color of the active tab and highlights across the UI.',
   'appSettings.language': 'Language',
   'appSettings.languageHint': 'Interface language. Defaults to your system language.',
+  'appSettings.density': 'Density',
+  'appSettings.density.comfortable': 'Comfortable',
+  'appSettings.density.compact': 'Compact',
+  'appSettings.densityHint': 'Density of lists and panels. The terminal is unchanged.',
   'appSettings.about': 'About',
   'appSettings.aboutTagline': 'Project command center — one window, full context.',
   'appSettings.version': 'Version {v}',
@@ -352,6 +367,13 @@ const en: Record<string, string> = {
 
   // notes panel
   'notes.placeholder': 'Project notes — saved automatically…',
+  'notes.resumeLabel': 'You stopped at',
+
+  'search.title': 'Search projects',
+  'search.placeholder': 'Search across all projects…',
+  'search.empty': 'Nothing found',
+  'search.noRg': 'ripgrep (rg) not found — install it to search',
+  'search.truncated': 'Some matches were hidden',
 
   // terminal panel
   'terminal.title': 'Terminal',

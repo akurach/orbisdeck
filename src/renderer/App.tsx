@@ -14,6 +14,7 @@ import { GlobalClaudeModal } from './components/GlobalClaudeModal'
 import { AppSettingsModal } from './components/AppSettingsModal'
 import { CommandPalette, type Command } from './components/CommandPalette'
 import { MissionControl } from './components/MissionControl'
+import { SearchModal } from './components/SearchModal'
 import { useT } from './i18n'
 
 // Classify a Notification's text for typed waiting (M9 W2) — mirrors the backend so the
@@ -32,7 +33,11 @@ export function App(): JSX.Element {
   const [appSettings, setAppSettings] = useState(false)
   const [palette, setPalette] = useState(false)
   const [mission, setMission] = useState(false)
+  const [search, setSearch] = useState(false)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  // A cross-project "open this file" pending a project switch (from global search). Read in
+  // the project-watch effect so the file survives the activeId reset that switch triggers.
+  const pendingOpenRef = useRef<{ projectId: string; path: string } | null>(null)
 
   const activeId = cockpit.activeProject?.id ?? null
   const layout = useLayout(activeId ?? '__none__')
@@ -146,7 +151,7 @@ export function App(): JSX.Element {
   activeIdRef.current = activeId
   const attentionRef = useRef(attention)
   attentionRef.current = attention
-  const overlayOpen = adding || globalClaude || appSettings || mission || hooksOffer
+  const overlayOpen = adding || globalClaude || appSettings || mission || search || hooksOffer
   const overlayRef = useRef(overlayOpen)
   overlayRef.current = overlayOpen
 
@@ -163,6 +168,12 @@ export function App(): JSX.Element {
       if (e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setPalette((o) => !o)
+        return
+      }
+      // Cmd+Shift+F — global cross-project search.
+      if (e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        setSearch((o) => !o)
         return
       }
       // Navigation shortcuts stand down while typing in a real field or an overlay is up.
@@ -261,6 +272,13 @@ export function App(): JSX.Element {
       })
     }
     cmds.push({ id: 'mission', group: gNav, label: t('mission.title'), run: () => setMission(true) })
+    cmds.push({
+      id: 'search',
+      group: gNav,
+      label: t('search.title'),
+      hint: '⌘⇧F',
+      run: () => setSearch(true)
+    })
     cmds.push({ id: 'add', group: gAction, label: t('app.addProject'), run: () => setAdding(true) })
     cmds.push({
       id: 'global',
@@ -336,12 +354,27 @@ export function App(): JSX.Element {
   // Reset the selected file when switching projects.
   useEffect(() => {
     if (!activeId) return
-    setSelectedFile(null)
+    // Normally reset the selection on switch; but if a global-search jump targeted THIS
+    // project, open that file instead of clearing.
+    const pend = pendingOpenRef.current
+    setSelectedFile(pend && pend.projectId === activeId ? pend.path : null)
+    pendingOpenRef.current = null
     window.cockpit.watchProject(activeId)
     return () => {
       window.cockpit.unwatchProject(activeId)
     }
   }, [activeId])
+
+  // Open a file from global search — switch project first if needed (the watch effect above
+  // applies the pending path once the switch lands), else select it directly.
+  const openFromSearch = (projectId: string, file: string): void => {
+    if (projectId === activeId) {
+      setSelectedFile(file)
+    } else {
+      pendingOpenRef.current = { projectId, path: file }
+      cockpit.setActiveProject(projectId)
+    }
+  }
 
   if (!cockpit.ready) {
     return <div className="boot">…</div>
@@ -515,6 +548,14 @@ export function App(): JSX.Element {
       {appSettings && <AppSettingsModal onClose={() => setAppSettings(false)} />}
 
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
+
+      {search && (
+        <SearchModal
+          projects={state.projects}
+          onOpen={openFromSearch}
+          onClose={() => setSearch(false)}
+        />
+      )}
 
       {mission && (
         <MissionControl

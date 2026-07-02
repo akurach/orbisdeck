@@ -7,6 +7,7 @@ mod detect;
 mod docker;
 mod files;
 mod git;
+mod search;
 mod store;
 mod types;
 
@@ -453,6 +454,26 @@ fn get_project_attention(
     }
     best.into_iter().map(|(id, (_, a))| (id, a)).collect()
 }
+/// Newest prompt the user sent in this project (M9 W3 resume card). Empty when the state
+/// log has none (hooks off, or nothing since install).
+#[tauri::command]
+fn get_last_prompt(store: State<Store>, project_id: String) -> LastPrompt {
+    let path = store.project(&project_id).map(|p| p.settings.path).unwrap_or_default();
+    let (text, ts) = agents::last_prompt(&path);
+    LastPrompt { text, ts }
+}
+/// Global cross-project ripgrep search (M9 W3). Read-only; maps each project's absolute path
+/// back to its id so the renderer can jump to the file.
+#[tauri::command]
+fn search_projects(store: State<Store>, query: String) -> SearchResult {
+    let st = store.get_state();
+    let projects: Vec<(String, String)> = st
+        .projects
+        .iter()
+        .map(|p| (p.id.clone(), p.settings.path.clone()))
+        .collect();
+    search::search(&projects, &query)
+}
 #[tauri::command]
 fn get_note(store: State<Store>, project_id: String) -> String {
     store.get_note(&project_id)
@@ -726,6 +747,8 @@ pub fn run() {
             get_waiting_projects,
             get_project_states,
             get_project_attention,
+            get_last_prompt,
+            search_projects,
             get_note,
             set_note,
             get_git_summary,

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLocale, LOCALES, LOCALE_LABEL } from '../i18n'
 import { ACCENT_PRESETS, getAccent, setAccent } from '../state/accent'
+import { type Density, getDensity, setDensity } from '../state/density'
 
 // App version — kept in sync with src-tauri/tauri.conf.json on release.
 const APP_VERSION = '0.1.0'
@@ -12,6 +13,7 @@ interface Props {
 export function AppSettingsModal({ onClose }: Props): JSX.Element {
   const { t, locale, setLocale } = useLocale()
   const [accent, setAccentState] = useState(getAccent())
+  const [density, setDensityState] = useState<Density>(getDensity())
 
   // Close on Escape.
   useEffect(() => {
@@ -26,6 +28,12 @@ export function AppSettingsModal({ onClose }: Props): JSX.Element {
     setAccent(color)
     setAccentState(color)
   }
+
+  const pickDensity = (d: Density): void => {
+    setDensity(d)
+    setDensityState(d)
+  }
+  const DENSITIES: Density[] = ['comfortable', 'compact']
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -79,6 +87,22 @@ export function AppSettingsModal({ onClose }: Props): JSX.Element {
                 ))}
               </div>
               <span className="field-hint">{t('appSettings.languageHint')}</span>
+            </div>
+
+            <div className="field">
+              <label>{t('appSettings.density')}</label>
+              <div className="lang-toggle">
+                {DENSITIES.map((d) => (
+                  <button
+                    key={d}
+                    className={`viewer-toggle-btn ${density === d ? 'active' : ''}`}
+                    onClick={() => pickDensity(d)}
+                  >
+                    {t(`appSettings.density.${d}`)}
+                  </button>
+                ))}
+              </div>
+              <span className="field-hint">{t('appSettings.densityHint')}</span>
             </div>
           </section>
 

@@ -247,6 +247,37 @@ pub struct OpResult {
     pub error: String,
 }
 
+/// M9 W3 resume card: the newest prompt the user sent in a project + its epoch-ms ts.
+#[derive(Clone, Serialize, Default)]
+pub struct LastPrompt {
+    pub text: String,
+    pub ts: u64,
+}
+
+// --- M9 W3: global cross-project search (ripgrep) ---
+
+#[derive(Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchMatch {
+    pub project_id: String,
+    /// project-relative file path (forward slashes)
+    pub file: String,
+    pub line: u32,
+    /// the matching line text, trimmed + capped
+    pub text: String,
+}
+
+#[derive(Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResult {
+    pub matches: Vec<SearchMatch>,
+    /// rg present & runnable
+    pub available: bool,
+    /// results were capped
+    pub truncated: bool,
+    pub error: String,
+}
+
 #[derive(Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeChainFile {

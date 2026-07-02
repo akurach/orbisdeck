@@ -239,8 +239,10 @@ process.stdin.on('end', () => {
     const line = JSON.stringify({ ts: Date.now(), cwd: p.cwd || '', session: p.session_id || '', message: p.message || 'Claude ждёт ответа' }) + '\n'
     try { appendFileSync(join(dir, 'notify.jsonl'), line) } catch {}
   } else if (mode === 'busy' || mode === 'idle') {
-    // attention state: working between UserPromptSubmit (busy) and Stop/SessionEnd (idle)
-    const line = JSON.stringify({ ts: Date.now(), cwd: p.cwd || '', session: p.session_id || '', kind: mode }) + '\n'
+    // attention state: working between UserPromptSubmit (busy) and Stop/SessionEnd (idle).
+    // On busy also capture the prompt text (capped) for the per-project resume card (M9 W3).
+    const prompt = mode === 'busy' ? String(p.prompt || '').slice(0, 500) : ''
+    const line = JSON.stringify({ ts: Date.now(), cwd: p.cwd || '', session: p.session_id || '', kind: mode, prompt }) + '\n'
     try { appendFileSync(join(dir, 'state.jsonl'), line) } catch {}
   } else {
     const ti = p.tool_input || {}
@@ -555,6 +557,39 @@ pub fn latest_cwd_states() -> Vec<(String, u64, String)> {
         .collect()
 }
 
+/// Newest captured prompt for a project's cwd subtree (M9 W3 resume card): (text, ts).
+/// Reads the `busy` events (UserPromptSubmit) from state.jsonl; ("", 0) when none.
+pub fn last_prompt(project_path: &str) -> (String, u64) {
+    if project_path.is_empty() {
+        return (String::new(), 0);
+    }
+    let prefix = format!("{project_path}/");
+    let states = read_log_capped(&od_dir().join("state.jsonl"));
+    let mut best: (String, u64) = (String::new(), 0);
+    for line in states.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let Ok(e) = serde_json::from_str::<Value>(line) else { continue };
+        if e.get("kind").and_then(|k| k.as_str()) != Some("busy") {
+            continue;
+        }
+        let cwd = e.get("cwd").and_then(|c| c.as_str()).unwrap_or("");
+        if cwd != project_path && !cwd.starts_with(&prefix) {
+            continue;
+        }
+        let prompt = e.get("prompt").and_then(|p| p.as_str()).unwrap_or("");
+        if prompt.is_empty() {
+            continue;
+        }
+        let ts = e.get("ts").and_then(|t| t.as_u64()).unwrap_or(0);
+        if ts >= best.1 {
+            best = (prompt.to_string(), ts);
+        }
+    }
+    best
+}
+
 /// Like `latest_cwd_states` but also carries the waiting `message` (empty for working/idle):
 /// (cwd, ts, status, message). Powers the per-project attention preview + typed waiting (M9 W2).
 pub fn latest_cwd_attention() -> Vec<(String, u64, String, String)> {
@@ -709,6 +744,35 @@ mod tests {
         let w = att.get("/proj/w").unwrap();
         assert_eq!(w.0, "working");
         assert_eq!(w.1, "");
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn last_prompt_picks_newest_in_subtree() {
+        let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let tmp = std::env::temp_dir().join(format!("orbisdeck-lp-{}", std::process::id()));
+        let od = tmp.join(".claude").join("orbisdeck");
+        fs::create_dir_all(&od).unwrap();
+        std::env::set_var("HOME", &tmp);
+
+        let now = now_ms();
+        write_lines(
+            &od.join("state.jsonl"),
+            &[
+                format!(r#"{{"ts":{},"cwd":"/proj/a","kind":"busy","prompt":"old"}}"#, now - 5000),
+                format!(r#"{{"ts":{},"cwd":"/proj/a/sub","kind":"busy","prompt":"newest"}}"#, now - 1000),
+                // a different project must not bleed in
+                format!(r#"{{"ts":{},"cwd":"/proj/b","kind":"busy","prompt":"other"}}"#, now),
+                // idle carries no prompt
+                format!(r#"{{"ts":{},"cwd":"/proj/a","kind":"idle","prompt":""}}"#, now - 500),
+            ],
+        );
+
+        let (text, ts) = last_prompt("/proj/a");
+        assert_eq!(text, "newest");
+        assert!(ts > 0);
+        assert_eq!(last_prompt("/nope").0, "");
 
         let _ = fs::remove_dir_all(&tmp);
     }

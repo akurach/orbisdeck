@@ -363,13 +363,19 @@ typecheck + lint + build:web green.
    non-zero exit came from a run/test/build/target (not the interactive Claude/shell, not a
    user-killed session — empty projectId). Cleared on focus. Closes the second silent blocker.
 
-**Wave 3 — pickup (may not happen):**
-9. **Per-project scratchpad / resume-card (Notes)** — last prompt you sent + last-activity ts
-   (`UserPromptSubmit` already in `state.jsonl`). "You stopped at: …", not a note editor.
-10. **Global ripgrep search across projects** ("which of the 6 projects did I see this in") — read-only,
-    stays inside the control-center role. + density toggle (Comfortable/Compact) as a cheap chrome-only
-    twin of `accent.ts` (do NOT retheme the terminal — xterm/highlight.js carry their own themes;
-    full theming is days of hardcoded-color audit + regressions → out).
+**Wave 3 — pickup · ✅ SHIPPED.** cargo check + 5 lib tests + typecheck + lint + build:web green.
+9. **Resume-card (Notes)** — ✅ the `busy` hook (UserPromptSubmit) now also captures the prompt
+   text (capped 500) into `state.jsonl`; existing users get it via `upgrade_hooks_if_present`.
+   Backend `get_last_prompt` (agents::`last_prompt` — newest busy prompt in the project's cwd
+   subtree) feeds a read-only "you stopped at: … · Nm" card atop NotesPanel. Not an editor.
+10. **Global ripgrep search** — ✅ new `search.rs` (`search_projects` command): shells to `rg`
+    per project (fixed-string, smart-case, .gitignore-respecting), hard-capped (12/project, 80
+    total), maps abs paths back to project-relative + id; `rg` missing → available:false, not a
+    crash. `SearchModal` (Cmd+Shift+F + palette entry) groups hits by project→file; a click jumps
+    to the project and opens the file (pending-open survives the activeId reset). **Density toggle**
+    — ✅ `state/density.ts` (chrome-only `data-density` twin of accent.ts) + App Settings toggle +
+    compact CSS overrides on tabs/tree/lists; terminal deliberately untouched. Full theming stays
+    out (xterm/highlight.js own themes; days of hardcoded-color audit).
 
 **Won't-build from this round (focus/maintenance gates):** inline editor / own git-client /
 agent auto-spawn orchestration; a full theme builder (max one light preset); cloud sync /

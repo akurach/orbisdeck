@@ -60,6 +60,8 @@ export async function installTauriCockpit(): Promise<void> {
     getWaitingProjects: () => invoke('get_waiting_projects'),
     getProjectStates: () => invoke('get_project_states'),
     getProjectAttention: () => invoke('get_project_attention'),
+    getLastPrompt: (projectId) => invoke('get_last_prompt', { projectId }),
+    searchProjects: (query) => invoke('search_projects', { query }),
     getNote: (projectId) => invoke('get_note', { projectId }),
     setNote: (projectId, text) => invoke('set_note', { projectId, text }),
 

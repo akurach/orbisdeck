@@ -18,8 +18,10 @@ import type {
   DockerAction,
   DockerStatus,
   FileContent,
+  LastPrompt,
   ProjectActivity,
   ProjectAttention,
+  SearchResult,
   GitSummary,
   GlobalClaudeConfig,
   Project,
@@ -89,6 +91,12 @@ export interface CockpitApi {
   /** Richer per-project attention (M9 W2): status + latest waiting message + kind + ts.
    *  Supersedes getProjectStates in the renderer (tab preview, longest-waiting queue). */
   getProjectAttention(): Promise<Record<ProjectId, ProjectAttention>>
+
+  // --- resume card + search (M9 W3) ---
+  /** Newest prompt the user sent in a project — the read-only "you stopped at" card. */
+  getLastPrompt(projectId: ProjectId): Promise<LastPrompt>
+  /** Global cross-project ripgrep search (read-only, capped). available=false if rg missing. */
+  searchProjects(query: string): Promise<SearchResult>
 
   // --- notes (M6): per-project free text ---
   getNote(projectId: ProjectId): Promise<string>

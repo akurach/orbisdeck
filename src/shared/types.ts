@@ -159,6 +159,32 @@ export interface AgentHooksStatus {
   installed: boolean
 }
 
+// --- M9 W3: resume card + global search ---
+
+/** Newest prompt the user sent in a project (resume card). text '' when none. */
+export interface LastPrompt {
+  text: string
+  /** epoch ms, 0 when unknown */
+  ts: number
+}
+
+export interface SearchMatch {
+  projectId: ProjectId
+  /** project-relative file path (forward slashes) */
+  file: string
+  line: number
+  text: string
+}
+
+export interface SearchResult {
+  matches: SearchMatch[]
+  /** rg present & runnable */
+  available: boolean
+  /** results were capped */
+  truncated: boolean
+  error: string
+}
+
 // --- M3: git summary ---
 
 export type GitChangeKind = 'added' | 'modified' | 'deleted' | 'renamed' | 'untracked'
