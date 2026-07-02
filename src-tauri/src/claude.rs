@@ -57,7 +57,11 @@ fn chain_walk(
     match fs::read(path) {
         Ok(data) => {
             let truncated = data.len() > CHAIN_READ_CAP;
-            let slice = if truncated { &data[..CHAIN_READ_CAP] } else { &data[..] };
+            let slice = if truncated {
+                &data[..CHAIN_READ_CAP]
+            } else {
+                &data[..]
+            };
             let content = String::from_utf8_lossy(slice).to_string();
             out.push(ClaudeChainFile {
                 path: display,
@@ -132,7 +136,11 @@ fn chain_from(start: &Path) -> Vec<ClaudeChainFile> {
     let mut out = vec![];
     let mut visited = HashSet::new();
     if start.is_file() {
-        let disp = start.file_name().and_then(|n| n.to_str()).unwrap_or("CLAUDE.md").to_string();
+        let disp = start
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("CLAUDE.md")
+            .to_string();
         chain_walk(start, disp, 0, &mut out, &mut visited);
     }
     out
@@ -165,7 +173,14 @@ fn count_md(dir: &Path) -> usize {
         .unwrap_or(0)
 }
 
-fn mk_node(id: &str, kind: &str, scope: &str, label: &str, detail: &str, delta: &str) -> ClaudeMapNode {
+fn mk_node(
+    id: &str,
+    kind: &str,
+    scope: &str,
+    label: &str,
+    detail: &str,
+    delta: &str,
+) -> ClaudeMapNode {
     ClaudeMapNode {
         id: id.into(),
         kind: kind.into(),
@@ -176,7 +191,11 @@ fn mk_node(id: &str, kind: &str, scope: &str, label: &str, detail: &str, delta: 
     }
 }
 fn mk_edge(from: &str, to: &str, kind: &str) -> ClaudeMapEdge {
-    ClaudeMapEdge { from: from.into(), to: to.into(), kind: kind.into() }
+    ClaudeMapEdge {
+        from: from.into(),
+        to: to.into(),
+        kind: kind.into(),
+    }
 }
 
 /// Build the global-vs-project context graph: CLAUDE.md (+@imports), settings, permissions,
@@ -191,14 +210,32 @@ pub fn context_map(project_path: &str, claude_md_rel: &str) -> ClaudeContextMap 
     let g_agents = count_md(&claude_dir().join("agents"));
     let g_commands = g.commands.len();
     let g_root = "g:claudemd";
-    nodes.push(mk_node(g_root, "claudemd", "global", "CLAUDE.md", &g.claude_md_path, ""));
+    nodes.push(mk_node(
+        g_root,
+        "claudemd",
+        "global",
+        "CLAUDE.md",
+        &g.claude_md_path,
+        "",
+    ));
 
-    for (i, f) in chain_from(Path::new(&g.claude_md_path)).into_iter().enumerate().skip(1) {
+    for (i, f) in chain_from(Path::new(&g.claude_md_path))
+        .into_iter()
+        .enumerate()
+        .skip(1)
+    {
         let id = format!("g:import:{i}");
         nodes.push(mk_node(&id, "import", "global", &f.path, "@import", ""));
         edges.push(mk_edge(g_root, &id, "import"));
     }
-    nodes.push(mk_node("g:settings", "settings", "global", "settings.json", &g.settings_path, ""));
+    nodes.push(mk_node(
+        "g:settings",
+        "settings",
+        "global",
+        "settings.json",
+        &g.settings_path,
+        "",
+    ));
     edges.push(mk_edge(g_root, "g:settings", "registers"));
     let perm_detail = format!(
         "{}a · {}k · {}d",
@@ -206,11 +243,25 @@ pub fn context_map(project_path: &str, claude_md_rel: &str) -> ClaudeContextMap 
         g.permissions.ask.len(),
         g.permissions.deny.len()
     );
-    nodes.push(mk_node("g:perms", "permissions", "global", "permissions", &perm_detail, ""));
+    nodes.push(mk_node(
+        "g:perms",
+        "permissions",
+        "global",
+        "permissions",
+        &perm_detail,
+        "",
+    ));
     edges.push(mk_edge(g_root, "g:perms", "registers"));
     // One aggregate hooks node, not one per hook — the per-hook flood was unreadable.
     if !g.hooks.is_empty() {
-        nodes.push(mk_node("g:hooks", "hook", "global", "hooks", &format!("×{}", g.hooks.len()), ""));
+        nodes.push(mk_node(
+            "g:hooks",
+            "hook",
+            "global",
+            "hooks",
+            &format!("×{}", g.hooks.len()),
+            "",
+        ));
         edges.push(mk_edge(g_root, "g:hooks", "registers"));
     }
     for (i, m) in g.mcp_servers.iter().take(MAP_MAX_PER_KIND).enumerate() {
@@ -219,15 +270,36 @@ pub fn context_map(project_path: &str, claude_md_rel: &str) -> ClaudeContextMap 
         edges.push(mk_edge(g_root, &id, "registers"));
     }
     if g_skills > 0 {
-        nodes.push(mk_node("g:skills", "skill", "global", "skills", &format!("×{g_skills}"), ""));
+        nodes.push(mk_node(
+            "g:skills",
+            "skill",
+            "global",
+            "skills",
+            &format!("×{g_skills}"),
+            "",
+        ));
         edges.push(mk_edge(g_root, "g:skills", "registers"));
     }
     if g_agents > 0 {
-        nodes.push(mk_node("g:agents", "agent", "global", "agents", &format!("×{g_agents}"), ""));
+        nodes.push(mk_node(
+            "g:agents",
+            "agent",
+            "global",
+            "agents",
+            &format!("×{g_agents}"),
+            "",
+        ));
         edges.push(mk_edge(g_root, "g:agents", "registers"));
     }
     if g_commands > 0 {
-        nodes.push(mk_node("g:commands", "command", "global", "commands", &format!("×{g_commands}"), ""));
+        nodes.push(mk_node(
+            "g:commands",
+            "command",
+            "global",
+            "commands",
+            &format!("×{g_commands}"),
+            "",
+        ));
         edges.push(mk_edge(g_root, "g:commands", "registers"));
     }
 
@@ -245,31 +317,62 @@ pub fn context_map(project_path: &str, claude_md_rel: &str) -> ClaudeContextMap 
         "claudemd",
         "project",
         "CLAUDE.md",
-        p_chain.first().map(|f| f.path.as_str()).unwrap_or("CLAUDE.md"),
+        p_chain
+            .first()
+            .map(|f| f.path.as_str())
+            .unwrap_or("CLAUDE.md"),
         if p_has_md { "added" } else { "" },
     ));
     for (i, f) in p_chain.into_iter().enumerate().skip(1) {
         let id = format!("p:import:{i}");
-        nodes.push(mk_node(&id, "import", "project", &f.path, "@import", "added"));
+        nodes.push(mk_node(
+            &id, "import", "project", &f.path, "@import", "added",
+        ));
         edges.push(mk_edge(p_root, &id, "import"));
     }
 
     let psettings = read_json(&pclaude.join("settings.json"));
     let plocal = read_json(&pclaude.join("settings.local.json"));
     if psettings.is_some() || plocal.is_some() {
-        nodes.push(mk_node("p:settings", "settings", "project", "settings.json", ".claude/settings.json", "override"));
+        nodes.push(mk_node(
+            "p:settings",
+            "settings",
+            "project",
+            "settings.json",
+            ".claude/settings.json",
+            "override",
+        ));
         edges.push(mk_edge(p_root, "p:settings", "registers"));
         edges.push(mk_edge("p:settings", "g:settings", "override"));
         let pp = parse_permissions(&psettings, &plocal);
         if !pp.allow.is_empty() || !pp.ask.is_empty() || !pp.deny.is_empty() {
-            let d = format!("{}a · {}k · {}d", pp.allow.len(), pp.ask.len(), pp.deny.len());
-            nodes.push(mk_node("p:perms", "permissions", "project", "permissions", &d, "override"));
+            let d = format!(
+                "{}a · {}k · {}d",
+                pp.allow.len(),
+                pp.ask.len(),
+                pp.deny.len()
+            );
+            nodes.push(mk_node(
+                "p:perms",
+                "permissions",
+                "project",
+                "permissions",
+                &d,
+                "override",
+            ));
             edges.push(mk_edge(p_root, "p:perms", "registers"));
             edges.push(mk_edge("p:perms", "g:perms", "override"));
         }
         let phooks = parse_hooks(&psettings);
         if !phooks.is_empty() {
-            nodes.push(mk_node("p:hooks", "hook", "project", "hooks", &format!("×{}", phooks.len()), "added"));
+            nodes.push(mk_node(
+                "p:hooks",
+                "hook",
+                "project",
+                "hooks",
+                &format!("×{}", phooks.len()),
+                "added",
+            ));
             edges.push(mk_edge(p_root, "p:hooks", "registers"));
         }
     }
@@ -277,10 +380,22 @@ pub fn context_map(project_path: &str, claude_md_rel: &str) -> ClaudeContextMap 
     for (i, m) in pmcp.iter().take(MAP_MAX_PER_KIND).enumerate() {
         let id = format!("p:mcp:{i}");
         let collides = g.mcp_servers.iter().any(|gm| gm.name == m.name);
-        nodes.push(mk_node(&id, "mcp", "project", &m.name, &m.kind, if collides { "override" } else { "added" }));
+        nodes.push(mk_node(
+            &id,
+            "mcp",
+            "project",
+            &m.name,
+            &m.kind,
+            if collides { "override" } else { "added" },
+        ));
         edges.push(mk_edge(p_root, &id, "registers"));
         if collides {
-            if let Some((gi, _)) = g.mcp_servers.iter().enumerate().find(|(_, gm)| gm.name == m.name) {
+            if let Some((gi, _)) = g
+                .mcp_servers
+                .iter()
+                .enumerate()
+                .find(|(_, gm)| gm.name == m.name)
+            {
                 edges.push(mk_edge(&id, &format!("g:mcp:{gi}"), "override"));
             }
         }
@@ -289,15 +404,36 @@ pub fn context_map(project_path: &str, claude_md_rel: &str) -> ClaudeContextMap 
     let p_agents = count_md(&pclaude.join("agents"));
     let p_commands = count_md(&pclaude.join("commands"));
     if p_skills > 0 {
-        nodes.push(mk_node("p:skills", "skill", "project", "skills", &format!("×{p_skills}"), "added"));
+        nodes.push(mk_node(
+            "p:skills",
+            "skill",
+            "project",
+            "skills",
+            &format!("×{p_skills}"),
+            "added",
+        ));
         edges.push(mk_edge(p_root, "p:skills", "registers"));
     }
     if p_agents > 0 {
-        nodes.push(mk_node("p:agents", "agent", "project", "agents", &format!("×{p_agents}"), "added"));
+        nodes.push(mk_node(
+            "p:agents",
+            "agent",
+            "project",
+            "agents",
+            &format!("×{p_agents}"),
+            "added",
+        ));
         edges.push(mk_edge(p_root, "p:agents", "registers"));
     }
     if p_commands > 0 {
-        nodes.push(mk_node("p:commands", "command", "project", "commands", &format!("×{p_commands}"), "added"));
+        nodes.push(mk_node(
+            "p:commands",
+            "command",
+            "project",
+            "commands",
+            &format!("×{p_commands}"),
+            "added",
+        ));
         edges.push(mk_edge(p_root, "p:commands", "registers"));
     }
 
@@ -342,7 +478,10 @@ fn parse_permissions(settings: &Option<Value>, local: &Option<Value>) -> ClaudeP
 
 fn parse_hooks(settings: &Option<Value>) -> Vec<ClaudeHook> {
     let mut out = vec![];
-    let Some(hooks) = settings.as_ref().and_then(|s| s.get("hooks")).and_then(|h| h.as_object())
+    let Some(hooks) = settings
+        .as_ref()
+        .and_then(|s| s.get("hooks"))
+        .and_then(|h| h.as_object())
     else {
         return out;
     };
@@ -375,7 +514,10 @@ fn parse_hooks(settings: &Option<Value>) -> Vec<ClaudeHook> {
 
 fn parse_mcp(src: &Option<Value>, source: &str) -> Vec<ClaudeMcpServer> {
     let mut out = vec![];
-    let Some(servers) = src.as_ref().and_then(|s| s.get("mcpServers")).and_then(|m| m.as_object())
+    let Some(servers) = src
+        .as_ref()
+        .and_then(|s| s.get("mcpServers"))
+        .and_then(|m| m.as_object())
     else {
         return out;
     };
@@ -383,7 +525,11 @@ fn parse_mcp(src: &Option<Value>, source: &str) -> Vec<ClaudeMcpServer> {
         let kind = cfg
             .get("type")
             .and_then(|t| t.as_str())
-            .unwrap_or(if cfg.get("url").is_some() { "http" } else { "stdio" })
+            .unwrap_or(if cfg.get("url").is_some() {
+                "http"
+            } else {
+                "stdio"
+            })
             .to_string();
         let detail = if let Some(url) = cfg.get("url").and_then(|u| u.as_str()) {
             url.to_string()
@@ -424,7 +570,10 @@ fn first_desc(path: &Path) -> String {
 }
 
 fn rel_path(path: &Path, base: &Path) -> String {
-    path.strip_prefix(base).unwrap_or(path).to_string_lossy().replace('\\', "/")
+    path.strip_prefix(base)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
 }
 
 fn list_commands(dir: &Path, base: &Path) -> Vec<ClaudeCommand> {
@@ -461,7 +610,10 @@ fn list_skills(dir: &Path, base: &Path) -> Vec<ClaudeCommand> {
         if path.is_dir() {
             let skill = path.join("SKILL.md");
             if skill.exists() {
-                let name = path.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+                let name = path
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_default();
                 out.push(ClaudeCommand {
                     name,
                     path: rel_path(&skill, base),
@@ -469,7 +621,10 @@ fn list_skills(dir: &Path, base: &Path) -> Vec<ClaudeCommand> {
                 });
             }
         } else if path.extension().and_then(|x| x.to_str()) == Some("md") {
-            let name = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+            let name = path
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_default();
             out.push(ClaudeCommand {
                 name,
                 path: rel_path(&path, base),
@@ -537,10 +692,7 @@ pub fn read_file(rel: &str) -> FileContent {
     // Block path traversal (no `..`, no absolute), but FOLLOW symlinks the user placed under
     // ~/.claude — e.g. skills/agents that link out to an Obsidian vault. Canonicalizing the
     // target rejected those (the resolved path escapes ~/.claude) and the file read empty.
-    if rel.is_empty()
-        || Path::new(rel).is_absolute()
-        || rel.split(['/', '\\']).any(|c| c == "..")
-    {
+    if rel.is_empty() || Path::new(rel).is_absolute() || rel.split(['/', '\\']).any(|c| c == "..") {
         return result;
     }
     let abs = dir.join(rel);
@@ -586,8 +738,14 @@ pub fn write_settings(text: &str) -> OpResult {
         };
     }
     match write_atomic(&claude_dir().join("settings.json"), &parsed) {
-        Ok(_) => OpResult { ok: true, error: String::new() },
-        Err(e) => OpResult { ok: false, error: e },
+        Ok(_) => OpResult {
+            ok: true,
+            error: String::new(),
+        },
+        Err(e) => OpResult {
+            ok: false,
+            error: e,
+        },
     }
 }
 
@@ -603,7 +761,13 @@ pub fn set_permissions(perms: ClaudePermissions) -> OpResult {
         "deny": perms.deny,
     });
     match write_atomic(&path, &settings) {
-        Ok(_) => OpResult { ok: true, error: String::new() },
-        Err(e) => OpResult { ok: false, error: e },
+        Ok(_) => OpResult {
+            ok: true,
+            error: String::new(),
+        },
+        Err(e) => OpResult {
+            ok: false,
+            error: e,
+        },
     }
 }

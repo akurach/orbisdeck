@@ -13,7 +13,9 @@ const COMPOSE_FILES: &[&str] = &[
 ];
 
 fn has_compose(root: &str) -> bool {
-    COMPOSE_FILES.iter().any(|f| Path::new(root).join(f).exists())
+    COMPOSE_FILES
+        .iter()
+        .any(|f| Path::new(root).join(f).exists())
 }
 
 fn docker(root: &str, args: &[&str]) -> Result<String, (bool, String)> {
@@ -22,7 +24,10 @@ fn docker(root: &str, args: &[&str]) -> Result<String, (bool, String)> {
             if out.status.success() {
                 Ok(String::from_utf8_lossy(&out.stdout).to_string())
             } else {
-                Err((true, String::from_utf8_lossy(&out.stderr).trim().to_string()))
+                Err((
+                    true,
+                    String::from_utf8_lossy(&out.stderr).trim().to_string(),
+                ))
             }
         }
         Err(e) => {

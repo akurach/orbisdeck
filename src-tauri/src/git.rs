@@ -7,7 +7,12 @@ use crate::types::{DiffResult, GitCommitSummary, GitSummary};
 const DIFF_CAP: usize = 200_000;
 
 fn git(root: &str, args: &[&str]) -> Option<String> {
-    let out = Command::new("git").arg("-C").arg(root).args(args).output().ok()?;
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .output()
+        .ok()?;
     if out.status.success() {
         Some(String::from_utf8_lossy(&out.stdout).to_string())
     } else {

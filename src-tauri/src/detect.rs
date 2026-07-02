@@ -53,8 +53,11 @@ pub fn detect(root: &str) -> DetectedSettings {
                     }
                 }
                 if has("test") {
-                    out.test_command =
-                        Some(if mgr == "yarn" { "yarn test".into() } else { format!("{mgr} test") });
+                    out.test_command = Some(if mgr == "yarn" {
+                        "yarn test".into()
+                    } else {
+                        format!("{mgr} test")
+                    });
                 }
                 for k in ["build", "compile"] {
                     if has(k) {
@@ -75,7 +78,8 @@ pub fn detect(root: &str) -> DetectedSettings {
                 .filter_map(|l| {
                     l.split_once(':').and_then(|(t, _)| {
                         let t = t.trim();
-                        if !t.is_empty() && t.chars().all(|c| c.is_alphanumeric() || "._-".contains(c))
+                        if !t.is_empty()
+                            && t.chars().all(|c| c.is_alphanumeric() || "._-".contains(c))
                         {
                             Some(t.to_string())
                         } else {
@@ -110,14 +114,20 @@ pub fn detect(root: &str) -> DetectedSettings {
     }
     if is_file(root, "pyproject.toml") || is_file(root, "setup.py") {
         out.sources.push(
-            if is_file(root, "pyproject.toml") { "pyproject.toml" } else { "setup.py" }.into(),
+            if is_file(root, "pyproject.toml") {
+                "pyproject.toml"
+            } else {
+                "setup.py"
+            }
+            .into(),
         );
         out.test_command.get_or_insert("pytest".into());
     }
     if COMPOSE_PRESENT.iter().any(|f| is_file(root, f)) {
         out.sources.push("docker compose".into());
         out.run_command.get_or_insert("docker compose up".into());
-        out.build_command.get_or_insert("docker compose build".into());
+        out.build_command
+            .get_or_insert("docker compose build".into());
     }
 
     // .env surfaced
