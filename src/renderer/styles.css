@@ -168,7 +168,7 @@ body {
 }
 /* Attention status (M8.1): yellow = waiting on you, green = Claude working. */
 .project-tab-badge.waiting {
-  background: #d6a700;
+  background: var(--yellow);
 }
 .project-tab-badge.working {
   background: #3fb950;
@@ -2047,12 +2047,19 @@ body {
 }
 
 /* --- M9 W1: tab git dirty-count glyph --- */
+/* Git dirty count is secondary signal — show only on the active or hovered tab so a row of
+   background tabs stays quiet (the status dot carries attention; ±N is on-demand detail). */
 .project-tab-git {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--yellow);
-  opacity: 0.85;
+  opacity: 0;
   flex: none;
+  transition: none;
+}
+.project-tab:hover .project-tab-git,
+.project-tab.active .project-tab-git {
+  opacity: 0.85;
 }
 
 /* --- M9 W1: command palette (Cmd+K) --- */
@@ -2160,14 +2167,14 @@ body {
   outline: 1px solid var(--border-strong);
 }
 .mission-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex: none;
   background: var(--text-faint);
 }
 .mission-dot.waiting {
-  background: #d6a700;
+  background: var(--yellow);
 }
 .mission-dot.working {
   background: var(--green);
@@ -2203,17 +2210,15 @@ body {
 }
 
 /* --- M9 W2: typed waiting + failed-run signals --- */
-/* Permission = a quick allow/deny reflex; a thin ring sets it apart from a real question. */
-.project-tab-badge.permission {
-  background: #e0a52a;
-  box-shadow: 0 0 0 2px #e0a52a44;
+/* Permission = a quick allow/deny reflex. Distinguished from a real question by a HOLLOW dot
+   (same waiting hue, no glow), not a louder color — status dots must never shout. */
+.project-tab-badge.permission,
+.mission-dot.permission {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--yellow);
 }
 .project-tab-badge.failed {
   background: var(--red);
-}
-.mission-dot.permission {
-  background: #e0a52a;
-  box-shadow: 0 0 0 2px #e0a52a44;
 }
 .mission-meta {
   display: flex;
@@ -2295,7 +2300,7 @@ body {
   text-overflow: ellipsis;
 }
 .search-line {
-  color: var(--accent);
+  color: var(--text-faint);
 }
 .search-text {
   font-family: var(--mono);
@@ -2323,4 +2328,11 @@ body {
 [data-density='compact'] .mission-row {
   padding-top: 6px;
   padding-bottom: 6px;
+}
+
+/* Genuine click targets — pointer, not the tool-default arrow. */
+.cmdk-item,
+.mission-row,
+.search-hit {
+  cursor: pointer;
 }

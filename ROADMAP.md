@@ -377,6 +377,26 @@ typecheck + lint + build:web green.
     compact CSS overrides on tabs/tree/lists; terminal deliberately untouched. Full theming stays
     out (xterm/highlight.js own themes; days of hardcoded-color audit).
 
+**M9 review + hardening (council round 4: security · rust · react · silent-failure · design) — ✅ DONE.**
+SAST clean (no XSS — all untrusted hook/prompt/search text is JSX-escaped; no injection — rg via
+execve not shell). Fixed the shared must-finds:
+- **Exit-code sentinel** (rust+silent+react all flagged): the pty give-up path emitted `0`
+  (success), silently hiding a failed background run — the exact signal M9 W2 exists for. Now
+  inits `-1`, breaks on `try_wait` `Err`, renderer treats non-zero (incl. unknown) as suspect.
+- **rg robustness**: a moved/deleted project dir surfaced as NotFound and aborted the whole
+  search with a false "rg not found". Now `is_dir` pre-check skips it; `available` set optimistically;
+  real rg errors (exit ≥2) logged.
+- **Mutex poison consistency**: all `pty.sessions.lock()` sites now recover via `into_inner()`
+  (only the exit thread did) — a panic-while-locked no longer cascades to every terminal command.
+- **Renderer**: search stale-guard was a no-op → monotonic request-id ref + unmount guard; git
+  poll + exit listener no longer tear down on every tab switch (keyed on project-id set, refs for
+  live reads); `palette` added to the overlay guard; Mission Control gets Escape + keyboard rows;
+  failed dot never sits on the focused tab.
+- **Design**: one `--yellow` for all waiting/permission (was 3 yellows); permission = hollow dot,
+  no glow (dots must not shout); one status slot per tab, priority failed>waiting>working, `±N`
+  only on active/hover; line-number off the accent. Deferred: font-scale tokenization (`--fs-*`),
+  rg `--`/timeout, get_last_prompt hooks-installed gate — logged, not blocking.
+
 **Won't-build from this round (focus/maintenance gates):** inline editor / own git-client /
 agent auto-spawn orchestration; a full theme builder (max one light preset); cloud sync /
 multi-device / theme marketplace; rich agent statuses over an unreliable source (hooks are opt-in) —

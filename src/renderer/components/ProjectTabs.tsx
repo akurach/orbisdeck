@@ -39,32 +39,33 @@ export function ProjectTabs({
       {projects.map((p, i) => {
         const att = attention[p.id]
         const status = att?.status
-        const dot = status === 'waiting' || status === 'working'
-        // Waiting preview: prefer the real message, else a kind label.
-        const waitTitle =
-          status === 'waiting'
-            ? att?.message ||
-              t(att?.kind === 'permission' ? 'tabs.waitPermission' : 'tabs.waiting')
-            : t('tabs.working')
+        const isActive = p.id === activeId
+        // Never show a stale failed dot on the tab you're looking at (a fast switch could set
+        // it just after the focus-clear ran). One status slot, priority-ranked so a background
+        // tab carries at most ONE dot: failed > waiting > working.
+        const isFailed = failed[p.id] && !isActive
+        const badge: { cls: string; title: string } | null = isFailed
+          ? { cls: 'failed', title: t('tabs.runFailed') }
+          : status === 'waiting'
+            ? {
+                cls: att?.kind === 'permission' ? 'waiting permission' : 'waiting',
+                title:
+                  att?.message ||
+                  t(att?.kind === 'permission' ? 'tabs.waitPermission' : 'tabs.waiting')
+              }
+            : status === 'working'
+              ? { cls: 'working', title: t('tabs.working') }
+              : null
         const g = git[p.id]
         const dirty = g?.isRepo ? g.changed : 0
-        const isFailed = failed[p.id]
         return (
         <div
           key={p.id}
-          className={`project-tab ${p.id === activeId ? 'active' : ''}`}
+          className={`project-tab ${isActive ? 'active' : ''}`}
           onClick={() => onSelect(p.id)}
           {...dragTab(i)}
         >
-          {dot && (
-            <span
-              className={`project-tab-badge ${status}${status === 'waiting' && att?.kind === 'permission' ? ' permission' : ''}`}
-              title={waitTitle}
-            />
-          )}
-          {isFailed && (
-            <span className="project-tab-badge failed" title={t('tabs.runFailed')} />
-          )}
+          {badge && <span className={`project-tab-badge ${badge.cls}`} title={badge.title} />}
           <span className="project-tab-name">{p.name}</span>
           {dirty > 0 && (
             <span className="project-tab-git" title={t('tabs.gitDirty', { n: dirty })}>

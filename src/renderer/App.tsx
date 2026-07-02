@@ -66,10 +66,11 @@ export function App(): JSX.Element {
   }, [cockpit.ready])
 
   // Instant waiting on a Notification (don't wait for the next poll) for non-active projects.
-  // Carries the message text so the tab preview + queue update immediately.
+  // Carries the message text so the tab preview + queue update immediately. Subscribed once
+  // (reads activeId via ref) so a tab switch never drops an event during a re-subscribe gap.
   useEffect(() => {
     return window.cockpit.onNotify((e) => {
-      if (e.projectId && e.projectId !== activeId) {
+      if (e.projectId && e.projectId !== activeIdRef.current) {
         const pid = e.projectId
         setAttention((prev) => ({
           ...prev,
@@ -82,36 +83,63 @@ export function App(): JSX.Element {
         }))
       }
     })
-  }, [activeId])
+  }, [])
 
   // Flag a failed background run/test/build on its project tab (M9 W2). The exit event now
   // carries projectId + command; ignore user-killed sessions (empty projectId) and the
-  // interactive Claude/shell (empty command or command == the project's autoLaunch).
-  const projectsForExit = cockpit.state.projects
+  // interactive Claude/shell (empty command or command == the project's autoLaunch). exit_code
+  // -1 = "unknown" from the backend give-up path — treated as suspect (flagged), not success.
+  // Subscribed once, reading projects/activeId via refs (no re-subscribe churn on switch).
   useEffect(() => {
     return window.cockpit.onTerminalExit((e) => {
       if (!e.projectId || e.exitCode === 0 || !e.command) return
-      const proj = projectsForExit.find((p) => p.id === e.projectId)
+      const proj = projectsRef.current.find((p) => p.id === e.projectId)
       if (proj && e.command === proj.settings.autoLaunchCommand) return
-      if (e.projectId === activeId) return // you're watching it — no need to flag
+      if (e.projectId === activeIdRef.current) return // you're watching it — no need to flag
       setFailed((prev) => ({ ...prev, [e.projectId as string]: true }))
     })
-  }, [projectsForExit, activeId])
+  }, [])
 
   // Slow cross-project git poll (M9 W1). Facts for the tab dirty-count + Mission Control;
   // deliberately unhurried (8s) and one-shot per project — never the live-watched hot path
   // the Engineer warned against. Refreshed immediately when Mission Control opens.
   const projects = cockpit.state.projects
+  // Stable identity for "the set of projects" — `cockpit.state.projects` is a fresh array on
+  // every getState() refresh (i.e. every tab switch), so depending on it directly would make
+  // the 8s git poll and the exit listener tear down + re-run on each navigation. Key on the
+  // ids instead; read the live list through refs inside the effects.
+  const projectIdsKey = projects.map((p) => p.id).join(',')
+
+  // --- refs: keep effect/handler bodies stable while reading current state ---
+  const setActiveProjectRef = useRef(cockpit.setActiveProject)
+  setActiveProjectRef.current = cockpit.setActiveProject
+  const projectsRef = useRef(projects)
+  projectsRef.current = projects
+  const activeIdRef = useRef(activeId)
+  activeIdRef.current = activeId
+  const attentionRef = useRef(attention)
+  attentionRef.current = attention
+  const overlayOpen =
+    adding || globalClaude || appSettings || mission || search || palette || hooksOffer
+  const overlayRef = useRef(overlayOpen)
+  overlayRef.current = overlayOpen
+
+  // Slow cross-project git poll (M9 W1). Facts for the tab dirty-count + Mission Control;
+  // deliberately unhurried (8s) and one-shot per project — never the live-watched hot path
+  // the Engineer warned against. Refreshed immediately when Mission Control opens.
   useEffect(() => {
-    if (!cockpit.ready || projects.length === 0) return
+    if (!cockpit.ready || projectsRef.current.length === 0) return
     let alive = true
     const tick = (): void => {
       Promise.all(
-        projects.map((p) =>
+        projectsRef.current.map((p) =>
           window.cockpit
             .getGitSummary(p.id)
             .then((g) => [p.id, g] as const)
-            .catch(() => null)
+            .catch((err) => {
+              console.error('[git-poll]', p.id, err)
+              return null
+            })
         )
       ).then((pairs) => {
         if (!alive) return
@@ -126,34 +154,19 @@ export function App(): JSX.Element {
       alive = false
       clearInterval(h)
     }
-    // Re-poll set changes when the project list changes (add/remove/reorder).
-  }, [cockpit.ready, projects])
+    // Re-poll only when the project SET changes (add/remove), not on every switch.
+  }, [cockpit.ready, projectIdsKey])
 
   // Refresh git the moment Mission Control opens (don't wait up to 8s for the next tick).
   useEffect(() => {
     if (!mission) return
-    projects.forEach((p) => {
+    projectsRef.current.forEach((p) => {
       window.cockpit
         .getGitSummary(p.id)
         .then((g) => setGitByProject((prev) => ({ ...prev, [p.id]: g })))
-        .catch(() => {})
+        .catch((err) => console.error('[git-refresh]', p.id, err))
     })
-  }, [mission, projects])
-
-  // --- single global keydown router (M9 W1) ---
-  // One capture-phase listener wins over xterm's greedy helper-textarea. Refs keep the
-  // handler stable (no re-register churn) while reading current projects/active/overlay.
-  const setActiveProjectRef = useRef(cockpit.setActiveProject)
-  setActiveProjectRef.current = cockpit.setActiveProject
-  const projectsRef = useRef(projects)
-  projectsRef.current = projects
-  const activeIdRef = useRef(activeId)
-  activeIdRef.current = activeId
-  const attentionRef = useRef(attention)
-  attentionRef.current = attention
-  const overlayOpen = adding || globalClaude || appSettings || mission || search || hooksOffer
-  const overlayRef = useRef(overlayOpen)
-  overlayRef.current = overlayOpen
+  }, [mission])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {

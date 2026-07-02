@@ -4,20 +4,25 @@ import { useT } from '../i18n'
 
 interface Props {
   projects: Project[]
-  onOpen: (projectId: ProjectId, file: string, line: number) => void
+  onOpen: (projectId: ProjectId, file: string) => void
   onClose: () => void
 }
 
 // Global cross-project search (M9 W3). Debounced ripgrep query; results grouped by project
-// then file. Read-only locator — click a hit to jump to that project + file. rg missing is a
-// reported state, never a crash.
+// then file. Read-only locator — click or Enter on a hit to jump to that project + file. rg
+// missing is a reported state, never a crash.
 export function SearchModal({ projects, onOpen, onClose }: Props): JSX.Element {
   const t = useT()
   const [query, setQuery] = useState('')
   const [result, setResult] = useState<SearchResult | null>(null)
   const [busy, setBusy] = useState(false)
+  const [sel, setSel] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Monotonic request id: only the latest in-flight search may apply its result. The previous
+  // closure-compared guard was a no-op (it compared two values from the same closure).
+  const reqId = useRef(0)
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -31,6 +36,7 @@ export function SearchModal({ projects, onOpen, onClose }: Props): JSX.Element {
 
   // Debounced query — don't spawn rg on every keystroke.
   useEffect(() => {
+    let alive = true
     if (timer.current) clearTimeout(timer.current)
     const q = query.trim()
     if (!q) {
@@ -40,19 +46,22 @@ export function SearchModal({ projects, onOpen, onClose }: Props): JSX.Element {
     }
     setBusy(true)
     timer.current = setTimeout(() => {
-      const mine = q
+      const id = ++reqId.current
       window.cockpit.searchProjects(q).then((r) => {
-        // Ignore a stale response if the query moved on.
-        if (mine === query.trim()) {
-          setResult(r)
-          setBusy(false)
-        }
+        // Drop this response if a newer search started or the modal unmounted.
+        if (!alive || id !== reqId.current) return
+        setResult(r)
+        setBusy(false)
+        setSel(0)
       })
     }, 250)
     return () => {
+      alive = false
       if (timer.current) clearTimeout(timer.current)
     }
   }, [query])
+
+  const hits: SearchMatch[] = result?.matches ?? []
 
   // Group matches by project, preserving order.
   const groups = useMemo(() => {
@@ -68,12 +77,41 @@ export function SearchModal({ projects, onOpen, onClose }: Props): JSX.Element {
     return g
   }, [result])
 
+  // Keep the selection in range + scrolled into view.
+  useEffect(() => {
+    setSel((s) => (s >= hits.length ? Math.max(0, hits.length - 1) : s))
+  }, [hits.length])
+  useEffect(() => {
+    listRef.current?.querySelector<HTMLElement>('.search-hit.active')?.scrollIntoView({
+      block: 'nearest'
+    })
+  }, [sel])
+
+  const openAt = (i: number): void => {
+    const m = hits[i]
+    if (!m) return
+    onClose()
+    onOpen(m.projectId, m.file)
+  }
+
   const onKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Escape') {
       e.preventDefault()
       onClose()
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSel((s) => Math.min(hits.length - 1, s + 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSel((s) => Math.max(0, s - 1))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      openAt(sel)
     }
   }
+
+  // Track a flat index across groups for selection highlight + click.
+  let flat = -1
 
   return (
     <div className="cmdk-backdrop" onClick={onClose}>
@@ -86,7 +124,7 @@ export function SearchModal({ projects, onOpen, onClose }: Props): JSX.Element {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
         />
-        <div className="cmdk-list">
+        <div className="cmdk-list" ref={listRef}>
           {result && !result.available && (
             <div className="cmdk-empty">{result.error || t('search.noRg')}</div>
           )}
@@ -96,22 +134,26 @@ export function SearchModal({ projects, onOpen, onClose }: Props): JSX.Element {
           {groups.map((g) => (
             <div key={g.projectId}>
               <div className="cmdk-group">{name[g.projectId] ?? g.projectId}</div>
-              {g.items.map((m, i) => (
-                <div
-                  key={`${m.file}:${m.line}:${i}`}
-                  className="search-hit"
-                  onClick={() => {
-                    onClose()
-                    onOpen(m.projectId, m.file, m.line)
-                  }}
-                >
-                  <span className="search-loc">
-                    {m.file}
-                    <span className="search-line">:{m.line}</span>
-                  </span>
-                  <span className="search-text">{m.text}</span>
-                </div>
-              ))}
+              {g.items.map((m) => {
+                flat++
+                const i = flat
+                return (
+                  <div
+                    key={`${m.file}:${m.line}:${i}`}
+                    className={`search-hit ${i === sel ? 'active' : ''}`}
+                    role="option"
+                    aria-selected={i === sel}
+                    onMouseMove={() => setSel(i)}
+                    onClick={() => openAt(i)}
+                  >
+                    <span className="search-loc">
+                      {m.file}
+                      <span className="search-line">:{m.line}</span>
+                    </span>
+                    <span className="search-text">{m.text}</span>
+                  </div>
+                )
+              })}
             </div>
           ))}
           {result?.truncated && <div className="cmdk-empty">{t('search.truncated')}</div>}

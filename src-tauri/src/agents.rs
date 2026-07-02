@@ -18,7 +18,10 @@ const RECENT_MS: u64 = 2 * 60 * 60 * 1000;
 const NOTIFY_RUNNING_MS: u64 = 6 * 60 * 60 * 1000;
 
 fn now_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 fn claude_dir() -> PathBuf {
@@ -48,7 +51,9 @@ fn encode_project_dir(path: &str) -> String {
 // ---------- transcript-based agents ----------
 
 fn recent_transcripts(project_path: &str) -> Vec<PathBuf> {
-    let dir = claude_dir().join("projects").join(encode_project_dir(project_path));
+    let dir = claude_dir()
+        .join("projects")
+        .join(encode_project_dir(project_path));
     let mut files: Vec<(PathBuf, SystemTime)> = vec![];
     if let Ok(rd) = fs::read_dir(&dir) {
         for e in rd.flatten() {
@@ -61,7 +66,11 @@ fn recent_transcripts(project_path: &str) -> Vec<PathBuf> {
         }
     }
     files.sort_by(|a, b| b.1.cmp(&a.1));
-    files.into_iter().take(MAX_SESSIONS).map(|(p, _)| p).collect()
+    files
+        .into_iter()
+        .take(MAX_SESSIONS)
+        .map(|(p, _)| p)
+        .collect()
 }
 
 fn tail_read(path: &Path) -> Option<String> {
@@ -83,12 +92,22 @@ const LOG_TAIL_CAP: usize = 256 * 1024;
 const LOG_ROTATE_AT: u64 = 1024 * 1024;
 
 fn read_log_capped(path: &Path) -> String {
-    let Ok(data) = fs::read(path) else { return String::new() };
+    let Ok(data) = fs::read(path) else {
+        return String::new();
+    };
     let truncated = data.len() > LOG_TAIL_CAP;
-    let slice = if truncated { &data[data.len() - LOG_TAIL_CAP..] } else { &data[..] };
+    let slice = if truncated {
+        &data[data.len() - LOG_TAIL_CAP..]
+    } else {
+        &data[..]
+    };
     // when we cut mid-stream, drop the partial leading line so the first parse doesn't fail
     let start = if truncated {
-        slice.iter().position(|&b| b == b'\n').map(|i| i + 1).unwrap_or(0)
+        slice
+            .iter()
+            .position(|&b| b == b'\n')
+            .map(|i| i + 1)
+            .unwrap_or(0)
     } else {
         0
     };
@@ -111,12 +130,16 @@ pub fn get_agents(project_path: &str) -> Vec<AgentInfo> {
     let mut finished: HashSet<String> = HashSet::new();
 
     for transcript in recent_transcripts(project_path) {
-        let Some(text) = tail_read(&transcript) else { continue };
+        let Some(text) = tail_read(&transcript) else {
+            continue;
+        };
         for line in text.lines() {
             if line.trim().is_empty() {
                 continue;
             }
-            let Ok(row) = serde_json::from_str::<Value>(line) else { continue };
+            let Ok(row) = serde_json::from_str::<Value>(line) else {
+                continue;
+            };
             let content = row
                 .get("message")
                 .and_then(|m| m.get("content"))
@@ -127,7 +150,11 @@ pub fn get_agents(project_path: &str) -> Vec<AgentInfo> {
                 if btype == "tool_use" {
                     let name = block.get("name").and_then(|n| n.as_str()).unwrap_or("");
                     if name == "Task" || name == "Agent" {
-                        let id = block.get("id").and_then(|i| i.as_str()).unwrap_or("").to_string();
+                        let id = block
+                            .get("id")
+                            .and_then(|i| i.as_str())
+                            .unwrap_or("")
+                            .to_string();
                         if id.is_empty() {
                             continue;
                         }
@@ -167,7 +194,11 @@ pub fn get_agents(project_path: &str) -> Vec<AgentInfo> {
     let mut out: Vec<AgentInfo> = agents
         .into_values()
         .map(|mut a| {
-            a.status = if finished.contains(&a.id) { "done".into() } else { "running".into() };
+            a.status = if finished.contains(&a.id) {
+                "done".into()
+            } else {
+                "running".into()
+            };
             a
         })
         .filter(|a| a.status == "running" || a.started_at == 0 || a.started_at >= cutoff)
@@ -216,9 +247,9 @@ fn live_claude_cwds() -> Vec<String> {
 }
 
 fn project_has_live_claude(project_path: &str) -> bool {
-    live_claude_cwds().iter().any(|c| {
-        c == project_path || c.starts_with(&format!("{project_path}/"))
-    })
+    live_claude_cwds()
+        .iter()
+        .any(|c| c == project_path || c.starts_with(&format!("{project_path}/")))
 }
 
 // ---------- hooks integration ----------
@@ -269,8 +300,11 @@ fn write_settings_value(v: &Value) -> Result<(), String> {
         }
     }
     let tmp = path.with_extension("json.tmp");
-    fs::write(&tmp, serde_json::to_string_pretty(v).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
+    fs::write(
+        &tmp,
+        serde_json::to_string_pretty(v).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
     fs::rename(&tmp, &path).map_err(|e| e.to_string())
 }
 
@@ -333,7 +367,10 @@ pub fn install() -> AgentHooksStatus {
             .unwrap()
             .entry(event)
             .or_insert_with(|| Value::Array(vec![]));
-        let already = arr.as_array().map(|a| a.iter().any(entry_is_ours)).unwrap_or(false);
+        let already = arr
+            .as_array()
+            .map(|a| a.iter().any(entry_is_ours))
+            .unwrap_or(false);
         if !already {
             arr.as_array_mut().unwrap().push(entry);
         }
@@ -426,7 +463,9 @@ pub fn read_events(project_path: &str) -> Vec<AgentInfo> {
         if line.trim().is_empty() {
             continue;
         }
-        let Ok(e) = serde_json::from_str::<Value>(line) else { continue };
+        let Ok(e) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
         let cwd = e.get("cwd").and_then(|c| c.as_str()).unwrap_or("");
         if cwd != project_path && !cwd.starts_with(&format!("{project_path}/")) {
             continue;
@@ -440,8 +479,16 @@ pub fn read_events(project_path: &str) -> Vec<AgentInfo> {
                 seq += 1;
                 open.push(AgentInfo {
                     id: format!("ev-{ts}-{seq}"),
-                    agent_type: e.get("type").and_then(|t| t.as_str()).unwrap_or("agent").to_string(),
-                    description: e.get("description").and_then(|d| d.as_str()).unwrap_or("").to_string(),
+                    agent_type: e
+                        .get("type")
+                        .and_then(|t| t.as_str())
+                        .unwrap_or("agent")
+                        .to_string(),
+                    description: e
+                        .get("description")
+                        .and_then(|d| d.as_str())
+                        .unwrap_or("")
+                        .to_string(),
                     status: "running".into(),
                     started_at: ts,
                     ended_at: 0,
@@ -490,8 +537,14 @@ pub fn read_notifications_since(since: u64) -> Vec<(u64, String, String)> {
             if ts > since {
                 out.push((
                     ts,
-                    e.get("cwd").and_then(|c| c.as_str()).unwrap_or("").to_string(),
-                    e.get("message").and_then(|m| m.as_str()).unwrap_or("").to_string(),
+                    e.get("cwd")
+                        .and_then(|c| c.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    e.get("message")
+                        .and_then(|m| m.as_str())
+                        .unwrap_or("")
+                        .to_string(),
                 ));
             }
         }
@@ -524,7 +577,9 @@ pub fn latest_cwd_states() -> Vec<(String, u64, String)> {
         if line.trim().is_empty() {
             continue;
         }
-        let Ok(e) = serde_json::from_str::<Value>(line) else { continue };
+        let Ok(e) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
         let ts = e.get("ts").and_then(|t| t.as_u64()).unwrap_or(0);
         let cwd = e.get("cwd").and_then(|c| c.as_str()).unwrap_or("");
         let status = match e.get("kind").and_then(|k| k.as_str()).unwrap_or("") {
@@ -540,7 +595,9 @@ pub fn latest_cwd_states() -> Vec<(String, u64, String)> {
         if line.trim().is_empty() {
             continue;
         }
-        let Ok(e) = serde_json::from_str::<Value>(line) else { continue };
+        let Ok(e) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
         let ts = e.get("ts").and_then(|t| t.as_u64()).unwrap_or(0);
         let cwd = e.get("cwd").and_then(|c| c.as_str()).unwrap_or("");
         consider(ts, cwd, "waiting");
@@ -570,7 +627,9 @@ pub fn last_prompt(project_path: &str) -> (String, u64) {
         if line.trim().is_empty() {
             continue;
         }
-        let Ok(e) = serde_json::from_str::<Value>(line) else { continue };
+        let Ok(e) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
         if e.get("kind").and_then(|k| k.as_str()) != Some("busy") {
             continue;
         }
@@ -615,7 +674,9 @@ pub fn latest_cwd_attention() -> Vec<(String, u64, String, String)> {
         if line.trim().is_empty() {
             continue;
         }
-        let Ok(e) = serde_json::from_str::<Value>(line) else { continue };
+        let Ok(e) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
         let ts = e.get("ts").and_then(|t| t.as_u64()).unwrap_or(0);
         let cwd = e.get("cwd").and_then(|c| c.as_str()).unwrap_or("");
         let status = match e.get("kind").and_then(|k| k.as_str()).unwrap_or("") {
@@ -631,7 +692,9 @@ pub fn latest_cwd_attention() -> Vec<(String, u64, String, String)> {
         if line.trim().is_empty() {
             continue;
         }
-        let Ok(e) = serde_json::from_str::<Value>(line) else { continue };
+        let Ok(e) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
         let ts = e.get("ts").and_then(|t| t.as_u64()).unwrap_or(0);
         let cwd = e.get("cwd").and_then(|c| c.as_str()).unwrap_or("");
         let msg = e.get("message").and_then(|m| m.as_str()).unwrap_or("");
@@ -652,7 +715,10 @@ pub fn latest_cwd_attention() -> Vec<(String, u64, String, String)> {
 
 #[allow(dead_code)]
 pub fn ignore() -> OpResult {
-    OpResult { ok: true, error: String::new() }
+    OpResult {
+        ok: true,
+        error: String::new(),
+    }
 }
 
 #[cfg(test)]
@@ -690,17 +756,25 @@ mod tests {
                 // B: recent busy -> working
                 format!(r#"{{"ts":{},"cwd":"/proj/b","kind":"busy"}}"#, now - 2000),
                 // D: busy but >30min old -> staleness backstop -> idle
-                format!(r#"{{"ts":{},"cwd":"/proj/d","kind":"busy"}}"#, now - 31 * 60 * 1000),
+                format!(
+                    r#"{{"ts":{},"cwd":"/proj/d","kind":"busy"}}"#,
+                    now - 31 * 60 * 1000
+                ),
             ],
         );
         write_lines(
             &od.join("notify.jsonl"),
             // C: waiting via Notification
-            &[format!(r#"{{"ts":{},"cwd":"/proj/c","message":"x"}}"#, now - 1500)],
+            &[format!(
+                r#"{{"ts":{},"cwd":"/proj/c","message":"x"}}"#,
+                now - 1500
+            )],
         );
 
-        let states: std::collections::HashMap<String, String> =
-            latest_cwd_states().into_iter().map(|(c, _, s)| (c, s)).collect();
+        let states: std::collections::HashMap<String, String> = latest_cwd_states()
+            .into_iter()
+            .map(|(c, _, s)| (c, s))
+            .collect();
 
         assert_eq!(states.get("/proj/a").map(String::as_str), Some("idle"));
         assert_eq!(states.get("/proj/b").map(String::as_str), Some("working"));
@@ -722,7 +796,10 @@ mod tests {
         write_lines(
             &od.join("state.jsonl"),
             // W: busy (working) — message must be empty
-            &[format!(r#"{{"ts":{},"cwd":"/proj/w","kind":"busy"}}"#, now - 1000)],
+            &[format!(
+                r#"{{"ts":{},"cwd":"/proj/w","kind":"busy"}}"#,
+                now - 1000
+            )],
         );
         write_lines(
             &od.join("notify.jsonl"),
@@ -760,12 +837,24 @@ mod tests {
         write_lines(
             &od.join("state.jsonl"),
             &[
-                format!(r#"{{"ts":{},"cwd":"/proj/a","kind":"busy","prompt":"old"}}"#, now - 5000),
-                format!(r#"{{"ts":{},"cwd":"/proj/a/sub","kind":"busy","prompt":"newest"}}"#, now - 1000),
+                format!(
+                    r#"{{"ts":{},"cwd":"/proj/a","kind":"busy","prompt":"old"}}"#,
+                    now - 5000
+                ),
+                format!(
+                    r#"{{"ts":{},"cwd":"/proj/a/sub","kind":"busy","prompt":"newest"}}"#,
+                    now - 1000
+                ),
                 // a different project must not bleed in
-                format!(r#"{{"ts":{},"cwd":"/proj/b","kind":"busy","prompt":"other"}}"#, now),
+                format!(
+                    r#"{{"ts":{},"cwd":"/proj/b","kind":"busy","prompt":"other"}}"#,
+                    now
+                ),
                 // idle carries no prompt
-                format!(r#"{{"ts":{},"cwd":"/proj/a","kind":"idle","prompt":""}}"#, now - 500),
+                format!(
+                    r#"{{"ts":{},"cwd":"/proj/a","kind":"idle","prompt":""}}"#,
+                    now - 500
+                ),
             ],
         );
 

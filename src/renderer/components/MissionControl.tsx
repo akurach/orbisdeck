@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import type { GitSummary, Project, ProjectAttention, ProjectId } from '../../shared/types'
 import { useT } from '../i18n'
 
@@ -25,6 +26,14 @@ export function MissionControl({
   onClose
 }: Props): JSX.Element {
   const t = useT()
+  // Close on Escape, like every other modal in the app.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
   // Waiting first (longest wait leads), then working, then idle.
   const rank = (id: ProjectId): number => {
     const s = attention[id]?.status
@@ -56,9 +65,18 @@ export function MissionControl({
               <div
                 key={p.id}
                 className={`mission-row ${p.id === activeId ? 'active' : ''}`}
+                role="button"
+                tabIndex={0}
                 onClick={() => {
                   onSelect(p.id)
                   onClose()
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onSelect(p.id)
+                    onClose()
+                  }
                 }}
               >
                 <span

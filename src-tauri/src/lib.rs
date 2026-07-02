@@ -35,7 +35,10 @@ static PENDING_JUMP: Mutex<Option<(String, u64)>> = Mutex::new(None);
 const JUMP_TTL_MS: u64 = 20_000;
 
 fn now_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 // ---------- terminals ----------
@@ -125,7 +128,7 @@ fn list_terminals(state: State<Pty>, project_id: String) -> Vec<TerminalInfo> {
     state
         .sessions
         .lock()
-        .unwrap()
+        .unwrap_or_else(|e| e.into_inner())
         .values()
         .filter(|s| s.info.project_id == project_id)
         .map(|s| s.info.clone())
@@ -137,7 +140,7 @@ fn get_terminal_buffer(state: State<Pty>, id: String) -> String {
     state
         .sessions
         .lock()
-        .unwrap()
+        .unwrap_or_else(|e| e.into_inner())
         .get(&id)
         .map(|s| s.buffer.lock().unwrap_or_else(|e| e.into_inner()).clone())
         .unwrap_or_default()
@@ -171,7 +174,12 @@ fn spawn_terminal(
 
     let sys = native_pty_system();
     let pair = sys
-        .openpty(PtySize { rows: rows.max(1), cols: cols.max(1), pixel_width: 0, pixel_height: 0 })
+        .openpty(PtySize {
+            rows: rows.max(1),
+            cols: cols.max(1),
+            pixel_width: 0,
+            pixel_height: 0,
+        })
         .map_err(|e| e.to_string())?;
 
     let shell = default_shell();
@@ -204,7 +212,13 @@ fn spawn_terminal(
     let info = TerminalInfo {
         id: id.clone(),
         project_id,
-        title: title.unwrap_or_else(|| if resolved_command.is_empty() { "shell".into() } else { resolved_command.clone() }),
+        title: title.unwrap_or_else(|| {
+            if resolved_command.is_empty() {
+                "shell".into()
+            } else {
+                resolved_command.clone()
+            }
+        }),
         command: resolved_command,
         cwd,
         started_at: now_ms(),
@@ -213,10 +227,19 @@ fn spawn_terminal(
     };
     let buffer = std::sync::Arc::new(Mutex::new(String::new()));
 
-    pty.sessions.lock().unwrap().insert(
-        id.clone(),
-        Session { master: pair.master, writer, _child: child, info: info.clone(), buffer: buffer.clone() },
-    );
+    pty.sessions
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(
+            id.clone(),
+            Session {
+                master: pair.master,
+                writer,
+                _child: child,
+                info: info.clone(),
+                buffer: buffer.clone(),
+            },
+        );
 
     let app2 = app.clone();
     let id2 = id.clone();
@@ -240,7 +263,13 @@ fn spawn_terminal(
                             b.drain(..cut);
                         }
                     }
-                    let _ = app2.emit("term-data", TermData { id: id2.clone(), data });
+                    let _ = app2.emit(
+                        "term-data",
+                        TermData {
+                            id: id2.clone(),
+                            data,
+                        },
+                    );
                 }
                 Err(_) => break,
             }
@@ -250,13 +279,20 @@ fn spawn_terminal(
         // essentially reaped, so the first probe almost always succeeds. If the session is
         // already gone (kill_terminal / remove_project), leave project_id empty so the renderer
         // treats it as a deliberate close, not a failed run.
-        let mut exit_code = 0i32;
+        // -1 = unknown (gave up after 100 tries, or try_wait errored). Deliberately NOT 0 —
+        // the renderer's failed-run signal must not read a hung/un-reaped child as a clean
+        // success. Only a real captured status sets a >=0 code.
+        let mut exit_code = -1i32;
         let mut project_id = String::new();
         let mut command = String::new();
         for _ in 0..100 {
-            let Some(pty) = app2.try_state::<Pty>() else { break };
+            let Some(pty) = app2.try_state::<Pty>() else {
+                break;
+            };
             let mut sessions = pty.sessions.lock().unwrap_or_else(|e| e.into_inner());
-            let Some(s) = sessions.get_mut(&id2) else { break };
+            let Some(s) = sessions.get_mut(&id2) else {
+                break;
+            };
             s.info.alive = false;
             project_id = s.info.project_id.clone();
             command = s.info.command.clone();
@@ -265,15 +301,25 @@ fn spawn_terminal(
                     exit_code = status.exit_code() as i32;
                     break;
                 }
-                _ => {
+                Ok(None) => {
                     drop(sessions);
                     std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(e) => {
+                    // A wait error won't fix itself on retry — stop and leave -1 (unknown).
+                    eprintln!("[pty] try_wait failed for {id2}: {e}");
+                    break;
                 }
             }
         }
         let _ = app2.emit(
             "term-exit",
-            TermExit { id: id2.clone(), exit_code, project_id, command },
+            TermExit {
+                id: id2.clone(),
+                exit_code,
+                project_id,
+                command,
+            },
         );
     });
 
@@ -282,7 +328,12 @@ fn spawn_terminal(
 
 #[tauri::command]
 fn write_terminal(state: State<Pty>, id: String, data: String) {
-    if let Some(s) = state.sessions.lock().unwrap().get_mut(&id) {
+    if let Some(s) = state
+        .sessions
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get_mut(&id)
+    {
         let _ = s.writer.write_all(data.as_bytes());
         let _ = s.writer.flush();
     }
@@ -290,21 +341,37 @@ fn write_terminal(state: State<Pty>, id: String, data: String) {
 
 #[tauri::command]
 fn resize_terminal(state: State<Pty>, id: String, cols: u16, rows: u16) {
-    if let Some(s) = state.sessions.lock().unwrap().get(&id) {
-        let _ = s.master.resize(PtySize { rows: rows.max(1), cols: cols.max(1), pixel_width: 0, pixel_height: 0 });
+    if let Some(s) = state
+        .sessions
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&id)
+    {
+        let _ = s.master.resize(PtySize {
+            rows: rows.max(1),
+            cols: cols.max(1),
+            pixel_width: 0,
+            pixel_height: 0,
+        });
     }
 }
 
 #[tauri::command]
 fn kill_terminal(state: State<Pty>, id: String) {
-    state.sessions.lock().unwrap().remove(&id);
+    state
+        .sessions
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .remove(&id);
 }
 
 // ---------- dialogs / detect ----------
 
 #[tauri::command]
 fn pick_directory() -> Option<String> {
-    rfd::FileDialog::new().pick_folder().map(|p| p.to_string_lossy().to_string())
+    rfd::FileDialog::new()
+        .pick_folder()
+        .map(|p| p.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -320,7 +387,11 @@ fn get_state(store: State<Store>) -> AppState {
 }
 #[tauri::command]
 fn add_project(store: State<Store>, input: Value) -> Project {
-    let name = input.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string();
+    let name = input
+        .get("name")
+        .and_then(|n| n.as_str())
+        .unwrap_or("")
+        .to_string();
     let settings: ProjectSettings = input
         .get("settings")
         .and_then(|s| serde_json::from_value(s.clone()).ok())
@@ -329,7 +400,10 @@ fn add_project(store: State<Store>, input: Value) -> Project {
 }
 #[tauri::command]
 fn update_project(store: State<Store>, id: String, patch: Value) -> Option<Project> {
-    let name = patch.get("name").and_then(|n| n.as_str()).map(|s| s.to_string());
+    let name = patch
+        .get("name")
+        .and_then(|n| n.as_str())
+        .map(|s| s.to_string());
     let settings = patch.get("settings").cloned();
     store.update_project(&id, name, settings)
 }
@@ -345,7 +419,10 @@ fn remove_project(store: State<Store>, pty: State<Pty>, id: String) {
         .map(|s| s.info.id.clone())
         .collect();
     for tid in ids {
-        pty.sessions.lock().unwrap().remove(&tid);
+        pty.sessions
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&tid);
     }
     store.remove_project(&id);
 }
@@ -373,9 +450,11 @@ fn get_waiting_projects(store: State<Store>) -> Vec<String> {
     let mut seen = std::collections::HashSet::new();
     let mut out = vec![];
     for (_ts, cwd, _msg) in agents::read_notifications_since(since) {
-        if let Some(p) = st.projects.iter().find(|p| {
-            cwd == p.settings.path || cwd.starts_with(&format!("{}/", p.settings.path))
-        }) {
+        if let Some(p) = st
+            .projects
+            .iter()
+            .find(|p| cwd == p.settings.path || cwd.starts_with(&format!("{}/", p.settings.path)))
+        {
             if seen.insert(p.id.clone()) {
                 out.push(p.id.clone());
             }
@@ -396,9 +475,7 @@ fn get_project_states(store: State<Store>) -> std::collections::HashMap<String, 
         let proj = st
             .projects
             .iter()
-            .filter(|p| {
-                cwd == p.settings.path || cwd.starts_with(&format!("{}/", p.settings.path))
-            })
+            .filter(|p| cwd == p.settings.path || cwd.starts_with(&format!("{}/", p.settings.path)))
             .max_by_key(|p| p.settings.path.len());
         if let Some(p) = proj {
             let e = best.entry(p.id.clone()).or_insert((0, String::new()));
@@ -423,12 +500,12 @@ fn get_project_attention(
         let proj = st
             .projects
             .iter()
-            .filter(|p| {
-                cwd == p.settings.path || cwd.starts_with(&format!("{}/", p.settings.path))
-            })
+            .filter(|p| cwd == p.settings.path || cwd.starts_with(&format!("{}/", p.settings.path)))
             .max_by_key(|p| p.settings.path.len());
         if let Some(p) = proj {
-            let e = best.entry(p.id.clone()).or_insert((0, ProjectAttention::default()));
+            let e = best
+                .entry(p.id.clone())
+                .or_insert((0, ProjectAttention::default()));
             if ts >= e.0 {
                 let kind = if status == "waiting" {
                     let m = message.to_lowercase();
@@ -458,7 +535,10 @@ fn get_project_attention(
 /// log has none (hooks off, or nothing since install).
 #[tauri::command]
 fn get_last_prompt(store: State<Store>, project_id: String) -> LastPrompt {
-    let path = store.project(&project_id).map(|p| p.settings.path).unwrap_or_default();
+    let path = store
+        .project(&project_id)
+        .map(|p| p.settings.path)
+        .unwrap_or_default();
     let (text, ts) = agents::last_prompt(&path);
     LastPrompt { text, ts }
 }
@@ -506,7 +586,12 @@ fn get_docker_status(store: State<Store>, project_id: String) -> DockerStatus {
     docker::status(&store.project_path(&project_id))
 }
 #[tauri::command]
-fn docker_action(store: State<Store>, project_id: String, action: String, service: Option<String>) -> OpResult {
+fn docker_action(
+    store: State<Store>,
+    project_id: String,
+    action: String,
+    service: Option<String>,
+) -> OpResult {
     docker::action(&store.project_path(&project_id), &action, service)
 }
 
@@ -583,7 +668,12 @@ struct FilesChanged {
 }
 
 #[tauri::command]
-fn watch_project(app: AppHandle, store: State<Store>, watchers: State<Watchers>, project_id: String) {
+fn watch_project(
+    app: AppHandle,
+    store: State<Store>,
+    watchers: State<Watchers>,
+    project_id: String,
+) {
     let root = store.project_path(&project_id);
     if root.is_empty() {
         return;
@@ -606,7 +696,12 @@ fn watch_project(app: AppHandle, store: State<Store>, watchers: State<Watchers>,
                 return;
             }
             *l = now;
-            let _ = app.emit("files-changed", FilesChanged { project_id: pid.clone() });
+            let _ = app.emit(
+                "files-changed",
+                FilesChanged {
+                    project_id: pid.clone(),
+                },
+            );
         }
     });
     if let Ok(mut w) = watcher {
