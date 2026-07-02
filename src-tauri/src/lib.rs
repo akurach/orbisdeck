@@ -462,33 +462,9 @@ fn get_waiting_projects(store: State<Store>) -> Vec<String> {
     }
     out
 }
-/// Per-project attention status (working|waiting|idle) from the hook state/notify logs.
-/// Maps each cwd to its project by longest-prefix (so a nested project wins over its parent)
-/// and keeps the newest event per project. Projects with no recent events are absent (= idle).
-/// M8.1.
-#[tauri::command]
-fn get_project_states(store: State<Store>) -> std::collections::HashMap<String, String> {
-    let st = store.get_state();
-    let mut best: std::collections::HashMap<String, (u64, String)> =
-        std::collections::HashMap::new();
-    for (cwd, ts, status) in agents::latest_cwd_states() {
-        let proj = st
-            .projects
-            .iter()
-            .filter(|p| cwd == p.settings.path || cwd.starts_with(&format!("{}/", p.settings.path)))
-            .max_by_key(|p| p.settings.path.len());
-        if let Some(p) = proj {
-            let e = best.entry(p.id.clone()).or_insert((0, String::new()));
-            if ts >= e.0 {
-                *e = (ts, status);
-            }
-        }
-    }
-    best.into_iter().map(|(id, (_, s))| (id, s)).collect()
-}
 /// Richer per-project attention (M9 W2): status + the latest waiting message + its kind +
-/// the event ts (for the longest-waiting queue). Same cwd→project longest-prefix mapping as
-/// `get_project_states`; supersedes it in the renderer while that stays for back-compat.
+/// the event ts (for the longest-waiting queue). Maps each cwd to its project by longest-prefix
+/// (a nested project wins over its parent), keeping the newest event per project.
 #[tauri::command]
 fn get_project_attention(
     store: State<Store>,
@@ -840,7 +816,6 @@ pub fn run() {
             reorder_projects,
             mark_agent_hooks_prompted,
             get_waiting_projects,
-            get_project_states,
             get_project_attention,
             get_last_prompt,
             search_projects,

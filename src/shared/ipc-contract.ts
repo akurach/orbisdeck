@@ -19,7 +19,6 @@ import type {
   DockerStatus,
   FileContent,
   LastPrompt,
-  ProjectActivity,
   ProjectAttention,
   SearchResult,
   GitSummary,
@@ -85,11 +84,8 @@ export interface CockpitApi {
   /** Projects whose Claude is awaiting input now (latest Notification within a window).
    *  Seeds waiting badges on startup — the live poller only sees post-launch events. */
   getWaitingProjects(): Promise<ProjectId[]>
-  /** Per-project attention status from the hook state/notify logs (M8.1). Projects absent
-   *  from the map are idle. Polled to drive the colored tab status dots. */
-  getProjectStates(): Promise<Record<ProjectId, ProjectActivity>>
-  /** Richer per-project attention (M9 W2): status + latest waiting message + kind + ts.
-   *  Supersedes getProjectStates in the renderer (tab preview, longest-waiting queue). */
+  /** Per-project attention (M8.1 status + M9 W2 message/kind/ts) from the hook state/notify
+   *  logs. Projects absent from the map are idle. Polled to drive tab status + the queue. */
   getProjectAttention(): Promise<Record<ProjectId, ProjectAttention>>
 
   // --- resume card + search (M9 W3) ---

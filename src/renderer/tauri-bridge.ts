@@ -58,7 +58,6 @@ export async function installTauriCockpit(): Promise<void> {
     uninstallAgentHooks: () => invoke('uninstall_agent_hooks'),
     markAgentHooksPrompted: () => invoke('mark_agent_hooks_prompted'),
     getWaitingProjects: () => invoke('get_waiting_projects'),
-    getProjectStates: () => invoke('get_project_states'),
     getProjectAttention: () => invoke('get_project_attention'),
     getLastPrompt: (projectId) => invoke('get_last_prompt', { projectId }),
     searchProjects: (query) => invoke('search_projects', { query }),

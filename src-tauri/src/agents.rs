@@ -65,7 +65,7 @@ fn recent_transcripts(project_path: &str) -> Vec<PathBuf> {
             }
         }
     }
-    files.sort_by(|a, b| b.1.cmp(&a.1));
+    files.sort_by_key(|f| std::cmp::Reverse(f.1));
     files
         .into_iter()
         .take(MAX_SESSIONS)
@@ -494,13 +494,11 @@ pub fn read_events(project_path: &str) -> Vec<AgentInfo> {
                     ended_at: 0,
                 });
             }
-            Some("stop") => {
-                if !open.is_empty() {
-                    let mut a = open.remove(0);
-                    a.status = "done".into();
-                    a.ended_at = ts;
-                    done.push(a);
-                }
+            Some("stop") if !open.is_empty() => {
+                let mut a = open.remove(0);
+                a.status = "done".into();
+                a.ended_at = ts;
+                done.push(a);
             }
             _ => {}
         }
@@ -550,68 +548,6 @@ pub fn read_notifications_since(since: u64) -> Vec<(u64, String, String)> {
         }
     }
     out
-}
-
-/// Latest attention status per cwd: (cwd, ts, status) where status ∈ working|waiting|idle.
-/// Merges state.jsonl (busy→working / idle) and notify.jsonl (waiting); newest event per cwd
-/// wins. A `working` whose event is older than STALE_MS is downgraded to idle — a crash
-/// backstop so a session that died without a Stop hook doesn't hang as "working" forever.
-/// M8.1. (lib.rs maps cwd→project via longest-prefix and reduces per project.)
-pub fn latest_cwd_states() -> Vec<(String, u64, String)> {
-    use std::collections::HashMap;
-    const STALE_MS: u64 = 30 * 60 * 1000;
-    let now = now_ms();
-    let mut latest: HashMap<String, (u64, String)> = HashMap::new();
-    let mut consider = |ts: u64, cwd: &str, status: &str| {
-        if cwd.is_empty() {
-            return;
-        }
-        let e = latest.entry(cwd.to_string()).or_insert((0, String::new()));
-        if ts >= e.0 {
-            *e = (ts, status.to_string());
-        }
-    };
-
-    let states = read_log_capped(&od_dir().join("state.jsonl"));
-    for line in states.lines() {
-        if line.trim().is_empty() {
-            continue;
-        }
-        let Ok(e) = serde_json::from_str::<Value>(line) else {
-            continue;
-        };
-        let ts = e.get("ts").and_then(|t| t.as_u64()).unwrap_or(0);
-        let cwd = e.get("cwd").and_then(|c| c.as_str()).unwrap_or("");
-        let status = match e.get("kind").and_then(|k| k.as_str()).unwrap_or("") {
-            "busy" => "working",
-            "idle" => "idle",
-            _ => continue,
-        };
-        consider(ts, cwd, status);
-    }
-
-    let notifs = read_log_capped(&od_dir().join("notify.jsonl"));
-    for line in notifs.lines() {
-        if line.trim().is_empty() {
-            continue;
-        }
-        let Ok(e) = serde_json::from_str::<Value>(line) else {
-            continue;
-        };
-        let ts = e.get("ts").and_then(|t| t.as_u64()).unwrap_or(0);
-        let cwd = e.get("cwd").and_then(|c| c.as_str()).unwrap_or("");
-        consider(ts, cwd, "waiting");
-    }
-
-    latest
-        .into_iter()
-        .map(|(cwd, (ts, mut status))| {
-            if status == "working" && now.saturating_sub(ts) > STALE_MS {
-                status = "idle".to_string();
-            }
-            (cwd, ts, status)
-        })
-        .collect()
 }
 
 /// Newest captured prompt for a project's cwd subtree (M9 W3 resume card): (text, ts).
@@ -771,9 +707,9 @@ mod tests {
             )],
         );
 
-        let states: std::collections::HashMap<String, String> = latest_cwd_states()
+        let states: std::collections::HashMap<String, String> = latest_cwd_attention()
             .into_iter()
-            .map(|(c, _, s)| (c, s))
+            .map(|(c, _, s, _)| (c, s))
             .collect();
 
         assert_eq!(states.get("/proj/a").map(String::as_str), Some("idle"));

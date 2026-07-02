@@ -98,6 +98,8 @@ export function CommandPalette({ commands, onClose }: Props): JSX.Element {
                 {header && <div className="cmdk-group">{header}</div>}
                 <div
                   className={`cmdk-item ${i === sel ? 'active' : ''}`}
+                  role="option"
+                  aria-selected={i === sel}
                   onMouseMove={() => setSel(i)}
                   onClick={() => runAt(i)}
                 >

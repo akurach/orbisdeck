@@ -17,6 +17,12 @@
   --radius: 6px;
   --mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
   --sans: -apple-system, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  /* One stepped font scale — no ad-hoc / half-pixel sizes (design system rule). */
+  --fs-1: 11px;
+  --fs-2: 12px;
+  --fs-3: 13px;
+  --fs-4: 14px;
+  --fs-5: 15px;
 }
 
 * {
@@ -2051,7 +2057,7 @@ body {
    background tabs stays quiet (the status dot carries attention; ±N is on-demand detail). */
 .project-tab-git {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-1);
   color: var(--yellow);
   opacity: 0;
   flex: none;
@@ -2090,7 +2096,7 @@ body {
   background: transparent;
   color: var(--text);
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: var(--fs-4);
   padding: 14px 16px;
   outline: none;
 }
@@ -2100,7 +2106,7 @@ body {
   padding: 6px;
 }
 .cmdk-group {
-  font-size: 10.5px;
+  font-size: var(--fs-1);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-faint);
@@ -2119,7 +2125,7 @@ body {
 }
 .cmdk-label {
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--fs-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2127,7 +2133,7 @@ body {
 .cmdk-hint {
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-1);
   color: var(--text-faint);
   white-space: nowrap;
   overflow: hidden;
@@ -2137,7 +2143,7 @@ body {
 .cmdk-empty {
   padding: 18px 12px;
   color: var(--text-faint);
-  font-size: 12.5px;
+  font-size: var(--fs-2);
   text-align: center;
 }
 
@@ -2180,12 +2186,12 @@ body {
   background: var(--green);
 }
 .mission-name {
-  font-size: 13px;
+  font-size: var(--fs-3);
   color: var(--text);
   font-weight: 500;
 }
 .mission-status {
-  font-size: 11.5px;
+  font-size: var(--fs-1);
   color: var(--text-dim);
 }
 .mission-status.waiting {
@@ -2200,7 +2206,7 @@ body {
   align-items: baseline;
   gap: 8px;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-1);
 }
 .mission-branch {
   color: var(--text-dim);
@@ -2228,7 +2234,7 @@ body {
   min-width: 0;
 }
 .mission-msg {
-  font-size: 11px;
+  font-size: var(--fs-1);
   color: var(--text-faint);
   white-space: nowrap;
   overflow: hidden;
@@ -2236,7 +2242,7 @@ body {
   max-width: 240px;
 }
 .mission-failed {
-  font-size: 11px;
+  font-size: var(--fs-1);
   color: var(--red);
 }
 
@@ -2255,7 +2261,7 @@ body {
   background: var(--bg-elev);
 }
 .resume-label {
-  font-size: 10.5px;
+  font-size: var(--fs-1);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-faint);
@@ -2264,7 +2270,7 @@ body {
   color: var(--text-faint);
 }
 .resume-text {
-  font-size: 12px;
+  font-size: var(--fs-2);
   color: var(--text-dim);
   line-height: 1.4;
   display: -webkit-box;
@@ -2293,7 +2299,7 @@ body {
 }
 .search-loc {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-1);
   color: var(--text-dim);
   white-space: nowrap;
   overflow: hidden;
@@ -2304,7 +2310,7 @@ body {
 }
 .search-text {
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--fs-1);
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -2314,7 +2320,7 @@ body {
 /* --- M9 W3: compact density (chrome only; terminal untouched) --- */
 [data-density='compact'] .project-tab {
   padding: 3px 8px 3px 11px;
-  font-size: 12px;
+  font-size: var(--fs-2);
 }
 [data-density='compact'] .tree-row {
   height: 19px;

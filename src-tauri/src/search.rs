@@ -50,6 +50,9 @@ pub fn search(projects: &[(String, String)], query: &str) -> SearchResult {
                 "3",
                 "-e",
                 q,
+                // End-of-options so a project path beginning with '-' can never be read as a
+                // flag (defense-in-depth; paths come from the native picker today).
+                "--",
                 path.as_str(),
             ])
             .output();
