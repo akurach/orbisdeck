@@ -48,6 +48,19 @@ const ru: Record<string, string> = {
   'tabs.working': 'Claude работает',
   'tabs.closeProject': 'Закрыть проект',
   'tabs.addProject': 'Добавить проект',
+  'tabs.gitDirty': '{n} изменений',
+
+  'cmd.placeholder': 'Команда или проект…',
+  'cmd.empty': 'Ничего не найдено',
+  'cmd.groupNav': 'Навигация',
+  'cmd.groupActions': 'Действия',
+  'cmd.groupRun': 'Запуск',
+  'cmd.switchTo': 'Перейти: {name}',
+  'cmd.newTerminal': 'Новый терминал',
+
+  'mission.title': 'Обзор проектов',
+  'mission.short': 'Обзор',
+  'mission.idle': 'Простаивает',
 
   // add-project modal
   'addProject.title': 'Новый проект',
@@ -306,6 +319,19 @@ const en: Record<string, string> = {
   'tabs.working': 'Claude is working',
   'tabs.closeProject': 'Close project',
   'tabs.addProject': 'Add project',
+  'tabs.gitDirty': '{n} changes',
+
+  'cmd.placeholder': 'Command or project…',
+  'cmd.empty': 'Nothing found',
+  'cmd.groupNav': 'Navigation',
+  'cmd.groupActions': 'Actions',
+  'cmd.groupRun': 'Run',
+  'cmd.switchTo': 'Switch to: {name}',
+  'cmd.newTerminal': 'New terminal',
+
+  'mission.title': 'Mission Control',
+  'mission.short': 'Overview',
+  'mission.idle': 'Idle',
 
   // add-project modal
   'addProject.title': 'New project',

@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react'
-import type { Project, ProjectActivity, ProjectId } from '../../shared/types'
+import type { GitSummary, Project, ProjectActivity, ProjectId } from '../../shared/types'
 import { moveItem, useTabReorder } from '../state/useTabReorder'
 import { useT } from '../i18n'
 
@@ -11,6 +11,7 @@ interface Props {
   onClose: (id: ProjectId) => void
   onReorder: (ids: ProjectId[]) => void
   states: Record<string, ProjectActivity>
+  git: Record<string, GitSummary>
 }
 
 export function ProjectTabs({
@@ -20,7 +21,8 @@ export function ProjectTabs({
   onAdd,
   onClose,
   onReorder,
-  states
+  states,
+  git
 }: Props): JSX.Element {
   const t = useT()
   const dragTab = useTabReorder((from, to) =>
@@ -35,6 +37,8 @@ export function ProjectTabs({
       {projects.map((p, i) => {
         const status = states[p.id]
         const dot = status === 'waiting' || status === 'working'
+        const g = git[p.id]
+        const dirty = g?.isRepo ? g.changed : 0
         return (
         <div
           key={p.id}
@@ -49,6 +53,11 @@ export function ProjectTabs({
             />
           )}
           <span className="project-tab-name">{p.name}</span>
+          {dirty > 0 && (
+            <span className="project-tab-git" title={t('tabs.gitDirty', { n: dirty })}>
+              ±{dirty}
+            </span>
+          )}
           <span className="project-tab-close" title={t('tabs.closeProject')} onClick={(e) => close(e, p)}>
             ×
           </span>

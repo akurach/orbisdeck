@@ -286,6 +286,91 @@ Fix is cheap and honest: add a few hooks.
 by an unnoticed waiting session → build M8.1; a week of not opening Settings/roadmap to add
 anything → it's done, freeze and use it (success, not failure).
 
+### Council round 3 — convenience + visual (10-feature pool)
+
+> Convened the full council (CPO · CTO · Engineer · User Researcher · Executive) + 🎨 Designer
+> on "invent 10 features raising convenience + the visual layer." Near-unanimous, and it points
+> at the SAME spine as M8: the product's one job is **routing attention across parallel Claude
+> sessions**. Everything else is polish over a working shell.
+
+**Selection frame (Executive):** score each candidate `(pain×2) + effort + wow`, then two hard
+kill-gates — (1) **focus gate:** does it move toward "command center over projects" or drift into
+editor / git-client / agent-orchestrator? Drift = cut regardless of score. (2) **maintenance-tax
+gate:** does it bind a fragile dependency on someone else's CLI/format? If so → read-only/best-effort
+or cut. Quota: **max 3–4 visual-only**, exactly **1 flagship**. 10 features = a 3-wave backlog, not
+one sprint; ship each wave to polish before the next.
+
+**Code-grounded correction (User Researcher, verified):** two signals the UI needs **already exist
+and are thrown away** —
+- The `Notification` hook already writes the **text** (`message`) into `notify.jsonl`
+  (`agents.rs` `read_notifications_since`, ~L475) — "Claude needs permission to use Bash" /
+  "waiting for your input". Today it fires a transient OS notification and lives nowhere in-app.
+  The tab dot says *waiting* but not *what for*.
+- Tab status (`latest_cwd_states`, ~L505) is built **only** on Claude hooks; **run/test/build exit
+  codes never reach the tab** — a background build fails and the tab looks identical. node-pty knows
+  the exit (`TerminalPanel.tsx`); it just isn't lifted to the tab.
+
+So the cheapest × most-frequent win is not 10 new features — it's **surfacing the `message` already
+caught + lifting exit codes to tabs + one jump-to-waiting hotkey.** Build attention as *layers of one
+mechanism*, not breadth. UR's warning: value is in ACTION (see → jump → answer); a preview + queue
+WITHOUT the hotkey is just another surface to read.
+
+### M9 — Attention surface + navigation polish · roadmap, not committed
+
+Ten features, ranked `(pain×2)+effort+wow`, in 3 waves. Waves 5–7 (attention layers) reuse
+data already collected. Cross-cutting prerequisite for all keyboard features (Engineer): build
+**one global keydown router** (capture phase, guard on `<input>`/textarea/modal) and reuse it —
+xterm.js greedily eats keys, so don't scatter listeners.
+
+**Wave 1 — quick wins (core job, cheap, daily pain) · ✅ SHIPPED.**
+Global keydown router landed first (`state/keys.ts` `isTypingTarget` + one capture-phase
+listener in `App.tsx`, reused by all keyboard features; xterm's helper-textarea excluded so
+shortcuts fire from a focused terminal). typecheck + lint + `build:web` green.
+1. **Mission Control — one screen, status of ALL projects** — ✅ `MissionControl.tsx` overlay:
+   attention-ranked rows (waiting → working → idle) + branch + dirty count; click to jump.
+   Reuses the live `getProjectStates` poll + the new slow git poll; refreshes git on open.
+   Reachable via the topbar "Overview" button and the palette. (tests/docker glyphs → W2/W3.)
+2. **Status glyphs on tabs** — ✅ (attention + git). The M8.1 waiting/working dot now sits beside
+   a git dirty-count glyph (`±N`), fed by a **slow (8s) one-shot cross-project git poll** in
+   `App.tsx` — deliberately not the live-watched hot path. tests-failed/docker-down deferred
+   (tests-failed rides W2 #8 exit codes; docker-down needs a per-project docker poll → W3).
+3. **Cmd+1..9 + Cmd+[ / ] project switch** — ✅ in the global router. Cmd+9 = last; stands down
+   while typing in a real field or an overlay is open.
+4. **Command palette (Cmd+K)** — ✅ `CommandPalette.tsx`: fuzzy subsequence filter over a
+   registry built in `App.tsx` (switch-project / Mission Control / add / Global Claude / settings /
+   new terminal / run·tests·build·run-targets via `terminalBus`). Owns its own arrow/enter/esc;
+   Cmd+K toggle lives in the global router so it opens from anywhere. Registry is a static list —
+   new actions must be registered there (Engineer's rot warning noted inline).
+
+**Wave 2 — attention layers (from already-collected data):**
+5. **Last-`message` preview at the tab** (hover tooltip / attention-rail line): "Claude asks: X or
+   Y?". Triage without switching. Data already in `notify.jsonl` — just surface it.
+6. **Attention queue + Cmd+↩ "jump to longest-waiting"** — waiting projects sorted by wait time,
+   each with the preview from #5. Completes M8's own "attention router" goal (the deferred hotkey).
+7. **Typed waiting + distinct notification signals** — parse `message`: "permission" → quick-action
+   sub-glyph (2-sec reflex) vs "question" → think. Plus completed / failed / needs-input as distinct
+   signals, not one type. A few lines over data already caught.
+8. **Run-target exit codes on the tab** — red dot/badge when a background run/test/build/preLaunch
+   exits non-zero, colored apart from Claude-waiting. Closes the second silent blocker ("where did
+   the build fail"); node-pty exit exists, lift it to the tab.
+
+**Wave 3 — pickup (may not happen):**
+9. **Per-project scratchpad / resume-card (Notes)** — last prompt you sent + last-activity ts
+   (`UserPromptSubmit` already in `state.jsonl`). "You stopped at: …", not a note editor.
+10. **Global ripgrep search across projects** ("which of the 6 projects did I see this in") — read-only,
+    stays inside the control-center role. + density toggle (Comfortable/Compact) as a cheap chrome-only
+    twin of `accent.ts` (do NOT retheme the terminal — xterm/highlight.js carry their own themes;
+    full theming is days of hardcoded-color audit + regressions → out).
+
+**Won't-build from this round (focus/maintenance gates):** inline editor / own git-client /
+agent auto-spawn orchestration; a full theme builder (max one light preset); cloud sync /
+multi-device / theme marketplace; rich agent statuses over an unreliable source (hooks are opt-in) —
+only dress the three honest states + a "last event N min ago" staleness stamp.
+
+**Honest metric (carries M8's):** does the status move and do you act on it? If the colored
+signal rarely moves or you don't jump on it, the parallelism thesis is weaker than hoped — name
+it and freeze, don't keep adding surface.
+
 ## What we deliberately won't do
 
 - No read-only-only dashboard (dodges the core risk, ships a launcher).

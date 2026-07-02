@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
-import type { ProjectActivity } from '../shared/types'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { GitSummary, ProjectActivity } from '../shared/types'
 import { useCockpit } from './state/useCockpit'
 import { useLayout } from './state/useLayout'
+import { isTypingTarget } from './state/keys'
+import { requestSpawn } from './state/terminalBus'
 import { ProjectTabs } from './components/ProjectTabs'
 import { TerminalPanel } from './components/TerminalPanel'
 import { RightPanel } from './components/RightPanel'
@@ -10,6 +12,8 @@ import { Splitter } from './components/Splitter'
 import { AddProjectModal } from './components/AddProjectModal'
 import { GlobalClaudeModal } from './components/GlobalClaudeModal'
 import { AppSettingsModal } from './components/AppSettingsModal'
+import { CommandPalette, type Command } from './components/CommandPalette'
+import { MissionControl } from './components/MissionControl'
 import { useT } from './i18n'
 
 export function App(): JSX.Element {
@@ -18,12 +22,15 @@ export function App(): JSX.Element {
   const [adding, setAdding] = useState(false)
   const [globalClaude, setGlobalClaude] = useState(false)
   const [appSettings, setAppSettings] = useState(false)
+  const [palette, setPalette] = useState(false)
+  const [mission, setMission] = useState(false)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
 
   const activeId = cockpit.activeProject?.id ?? null
   const layout = useLayout(activeId ?? '__none__')
   const [hooksOffer, setHooksOffer] = useState(false)
   const [projectStates, setProjectStates] = useState<Record<string, ProjectActivity>>({})
+  const [gitByProject, setGitByProject] = useState<Record<string, GitSummary>>({})
 
   // Poll per-project attention status (working/waiting/idle) from the hook logs (M8.1).
   // Runs immediately on ready (subsumes the startup waiting-seed) then every 2s.
@@ -52,16 +59,102 @@ export function App(): JSX.Element {
     })
   }, [activeId])
 
-  // Cmd+, opens App Settings (macOS convention).
+  // Slow cross-project git poll (M9 W1). Facts for the tab dirty-count + Mission Control;
+  // deliberately unhurried (8s) and one-shot per project — never the live-watched hot path
+  // the Engineer warned against. Refreshed immediately when Mission Control opens.
+  const projects = cockpit.state.projects
+  useEffect(() => {
+    if (!cockpit.ready || projects.length === 0) return
+    let alive = true
+    const tick = (): void => {
+      Promise.all(
+        projects.map((p) =>
+          window.cockpit
+            .getGitSummary(p.id)
+            .then((g) => [p.id, g] as const)
+            .catch(() => null)
+        )
+      ).then((pairs) => {
+        if (!alive) return
+        const next: Record<string, GitSummary> = {}
+        for (const pair of pairs) if (pair) next[pair[0]] = pair[1]
+        setGitByProject(next)
+      })
+    }
+    tick()
+    const h = setInterval(tick, 8000)
+    return () => {
+      alive = false
+      clearInterval(h)
+    }
+    // Re-poll set changes when the project list changes (add/remove/reorder).
+  }, [cockpit.ready, projects])
+
+  // Refresh git the moment Mission Control opens (don't wait up to 8s for the next tick).
+  useEffect(() => {
+    if (!mission) return
+    projects.forEach((p) => {
+      window.cockpit
+        .getGitSummary(p.id)
+        .then((g) => setGitByProject((prev) => ({ ...prev, [p.id]: g })))
+        .catch(() => {})
+    })
+  }, [mission, projects])
+
+  // --- single global keydown router (M9 W1) ---
+  // One capture-phase listener wins over xterm's greedy helper-textarea. Refs keep the
+  // handler stable (no re-register churn) while reading current projects/active/overlay.
+  const setActiveProjectRef = useRef(cockpit.setActiveProject)
+  setActiveProjectRef.current = cockpit.setActiveProject
+  const projectsRef = useRef(projects)
+  projectsRef.current = projects
+  const activeIdRef = useRef(activeId)
+  activeIdRef.current = activeId
+  const overlayOpen = adding || globalClaude || appSettings || mission || hooksOffer
+  const overlayRef = useRef(overlayOpen)
+  overlayRef.current = overlayOpen
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+      const mod = e.metaKey || e.ctrlKey
+      if (!mod) return
+      // App-level toggles work from anywhere, including a focused terminal or the palette.
+      if (e.key === ',') {
         e.preventDefault()
         setAppSettings(true)
+        return
+      }
+      if (e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setPalette((o) => !o)
+        return
+      }
+      // Navigation shortcuts stand down while typing in a real field or an overlay is up.
+      if (isTypingTarget(e) || overlayRef.current) return
+      const list = projectsRef.current
+      if (list.length === 0) return
+      if (e.key >= '1' && e.key <= '9') {
+        // Cmd+9 = last (browser convention); Cmd+1..8 = that index.
+        const idx = e.key === '9' ? list.length - 1 : Number(e.key) - 1
+        const p = list[idx]
+        if (p) {
+          e.preventDefault()
+          setActiveProjectRef.current(p.id)
+        }
+        return
+      }
+      if (e.key === '[' || e.key === ']') {
+        const cur = list.findIndex((p) => p.id === activeIdRef.current)
+        const delta = e.key === ']' ? 1 : -1
+        const next = list[(Math.max(0, cur) + delta + list.length) % list.length]
+        if (next) {
+          e.preventDefault()
+          setActiveProjectRef.current(next.id)
+        }
       }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [])
 
   // Clicking the OS "awaiting input" notification jumps straight to that project.
@@ -95,6 +188,89 @@ export function App(): JSX.Element {
       alive = false
     }
   }, [cockpit.ready, cockpit.state.agentHooksPrompted])
+
+  // Command palette registry (M9 W1). Static-ish list rebuilt from current state; every
+  // new action must be registered here or the palette silently rots (Engineer's warning).
+  const setActiveProject2 = cockpit.setActiveProject
+  const commands = useMemo<Command[]>(() => {
+    const cmds: Command[] = []
+    const gNav = t('cmd.groupNav')
+    const gAction = t('cmd.groupActions')
+    const gRun = t('cmd.groupRun')
+    for (const p of projects) {
+      if (p.id === activeId) continue
+      cmds.push({
+        id: `switch:${p.id}`,
+        group: gNav,
+        label: t('cmd.switchTo', { name: p.name }),
+        run: () => setActiveProject2(p.id)
+      })
+    }
+    cmds.push({ id: 'mission', group: gNav, label: t('mission.title'), run: () => setMission(true) })
+    cmds.push({ id: 'add', group: gAction, label: t('app.addProject'), run: () => setAdding(true) })
+    cmds.push({
+      id: 'global',
+      group: gAction,
+      label: t('app.globalClaude'),
+      run: () => setGlobalClaude(true)
+    })
+    cmds.push({
+      id: 'settings',
+      group: gAction,
+      label: t('app.settings'),
+      hint: '⌘,',
+      run: () => setAppSettings(true)
+    })
+    const ap = projects.find((p) => p.id === activeId)
+    if (ap) {
+      cmds.push({
+        id: 'term:new',
+        group: gRun,
+        label: t('cmd.newTerminal'),
+        run: () => requestSpawn({ projectId: ap.id, title: 'shell' })
+      })
+      const s = ap.settings
+      const spawnCmd = (title: string, command: string): void => {
+        requestSpawn({ projectId: ap.id, title, command })
+      }
+      if (s.runCommand)
+        cmds.push({
+          id: 'run',
+          group: gRun,
+          label: `Run`,
+          hint: s.runCommand,
+          run: () => spawnCmd('run', s.runCommand)
+        })
+      if (s.testCommand)
+        cmds.push({
+          id: 'test',
+          group: gRun,
+          label: `Tests`,
+          hint: s.testCommand,
+          run: () => spawnCmd('tests', s.testCommand)
+        })
+      if (s.buildCommand)
+        cmds.push({
+          id: 'build',
+          group: gRun,
+          label: `Build`,
+          hint: s.buildCommand,
+          run: () => spawnCmd('build', s.buildCommand)
+        })
+      for (const rt of s.runTargets ?? []) {
+        if (!rt.name || !rt.command) continue
+        const command = rt.preLaunch ? `${rt.preLaunch} && ${rt.command}` : rt.command
+        cmds.push({
+          id: `rt:${rt.name}`,
+          group: gRun,
+          label: rt.name,
+          hint: command,
+          run: () => spawnCmd(rt.name, command)
+        })
+      }
+    }
+    return cmds
+  }, [projects, activeId, t, setActiveProject2])
 
   const closeHooksOffer = async (install: boolean): Promise<void> => {
     if (install) await window.cockpit.installAgentHooks()
@@ -175,8 +351,16 @@ export function App(): JSX.Element {
           onClose={cockpit.removeProject}
           onReorder={cockpit.reorderProjects}
           states={projectStates}
+          git={gitByProject}
         />
         <div className="topbar-right">
+          <button
+            className="btn"
+            title={t('mission.title')}
+            onClick={() => setMission(true)}
+          >
+            {t('mission.short')}
+          </button>
           <button className="btn global-claude-btn" onClick={() => setGlobalClaude(true)}>
             {t('app.globalClaude')}
           </button>
@@ -274,6 +458,19 @@ export function App(): JSX.Element {
       )}
 
       {appSettings && <AppSettingsModal onClose={() => setAppSettings(false)} />}
+
+      {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
+
+      {mission && (
+        <MissionControl
+          projects={state.projects}
+          activeId={activeId}
+          states={projectStates}
+          git={gitByProject}
+          onSelect={cockpit.setActiveProject}
+          onClose={() => setMission(false)}
+        />
+      )}
 
       {hooksOffer && (
         <div className="modal-backdrop" onClick={() => closeHooksOffer(false)}>
