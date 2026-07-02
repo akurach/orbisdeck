@@ -133,7 +133,7 @@ fn get_terminal_buffer(state: State<Pty>, id: String) -> String {
         .lock()
         .unwrap()
         .get(&id)
-        .map(|s| s.buffer.lock().unwrap().clone())
+        .map(|s| s.buffer.lock().unwrap_or_else(|e| e.into_inner()).clone())
         .unwrap_or_default()
 }
 
@@ -222,11 +222,16 @@ fn spawn_terminal(
                 Ok(n) => {
                     let data = String::from_utf8_lossy(&buf[..n]).to_string();
                     {
-                        let mut b = buffer.lock().unwrap();
+                        let mut b = buffer.lock().unwrap_or_else(|e| e.into_inner());
                         b.push_str(&data);
                         if b.len() > MAX_BUFFER {
-                            let cut = b.len() - MAX_BUFFER;
-                            *b = b[cut..].to_string();
+                            // Trim to a char boundary — byte-slicing mid-UTF-8
+                            // (e.g. Cyrillic) panics and poisons this mutex.
+                            let mut cut = b.len() - MAX_BUFFER;
+                            while cut < b.len() && !b.is_char_boundary(cut) {
+                                cut += 1;
+                            }
+                            b.drain(..cut);
                         }
                     }
                     let _ = app2.emit("term-data", TermData { id: id2.clone(), data });
