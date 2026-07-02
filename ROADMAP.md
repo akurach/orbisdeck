@@ -342,17 +342,26 @@ shortcuts fire from a focused terminal). typecheck + lint + `build:web` green.
    Cmd+K toggle lives in the global router so it opens from anywhere. Registry is a static list —
    new actions must be registered there (Engineer's rot warning noted inline).
 
-**Wave 2 — attention layers (from already-collected data):**
-5. **Last-`message` preview at the tab** (hover tooltip / attention-rail line): "Claude asks: X or
-   Y?". Triage without switching. Data already in `notify.jsonl` — just surface it.
-6. **Attention queue + Cmd+↩ "jump to longest-waiting"** — waiting projects sorted by wait time,
-   each with the preview from #5. Completes M8's own "attention router" goal (the deferred hotkey).
-7. **Typed waiting + distinct notification signals** — parse `message`: "permission" → quick-action
-   sub-glyph (2-sec reflex) vs "question" → think. Plus completed / failed / needs-input as distinct
-   signals, not one type. A few lines over data already caught.
-8. **Run-target exit codes on the tab** — red dot/badge when a background run/test/build/preLaunch
-   exits non-zero, colored apart from Claude-waiting. Closes the second silent blocker ("where did
-   the build fail"); node-pty exit exists, lift it to the tab.
+**Wave 2 — attention layers (from already-collected data) · ✅ SHIPPED.**
+New backend `get_project_attention` (`agents::latest_cwd_attention` — mirrors `latest_cwd_states`
+but carries the waiting `message`; longest-prefix cwd→project in `lib.rs`, kind classified from
+the text). Renderer polls it in place of `getProjectStates`. cargo check + 2 lib tests +
+typecheck + lint + build:web green.
+5. **Last-`message` preview at the tab** — ✅ the `notify.jsonl` `message` (previously written then
+   discarded) now rides `get_project_attention` → tab badge `title` shows the actual ask; the full
+   text also lands in Mission Control rows. UR's "surface the caught message" fix.
+6. **Attention queue + Cmd+↩ "jump to longest-waiting"** — ✅ Cmd+Enter in the global router jumps
+   to the oldest-waiting project (`since` asc); Mission Control floats waiting rows to the top in
+   the same order — the visible queue. Completes M8's own attention-router goal.
+7. **Typed waiting** — ✅ `message` classified permission vs question (backend + a matching
+   renderer `classifyWaiting` for the instant onNotify path). Permission badge gets a distinct ring
+   (quick reflex) vs a plain waiting dot; labels differ. (completed/needs-input distinct types →
+   later; failed is #8.)
+8. **Run-target exit codes on the tab** — ✅ the pty reader now captures the **real** exit code
+   (`try_wait` without holding the sessions lock; previously hardcoded 0) and the `term-exit` event
+   carries `projectId` + `command`. App flags a red badge on a background project's tab when a
+   non-zero exit came from a run/test/build/target (not the interactive Claude/shell, not a
+   user-killed session — empty projectId). Cleared on focus. Closes the second silent blocker.
 
 **Wave 3 — pickup (may not happen):**
 9. **Per-project scratchpad / resume-card (Notes)** — last prompt you sent + last-activity ts

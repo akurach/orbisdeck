@@ -1,32 +1,41 @@
-import type { GitSummary, Project, ProjectActivity, ProjectId } from '../../shared/types'
+import type { GitSummary, Project, ProjectAttention, ProjectId } from '../../shared/types'
 import { useT } from '../i18n'
 
 interface Props {
   projects: Project[]
   activeId: ProjectId | null
-  states: Record<ProjectId, ProjectActivity>
+  attention: Record<ProjectId, ProjectAttention>
+  failed: Record<ProjectId, boolean>
   git: Record<ProjectId, GitSummary>
   onSelect: (id: ProjectId) => void
   onClose: () => void
 }
 
-// Mission Control (M9 W1): one screen, status of ALL projects at a glance — the core
-// "which session needs me" job. Attention status comes from the live poll App already
-// runs; git comes from the slow cross-project poll (fact, not live-watched). Click a row
-// to jump. Read-only aggregate; no per-project actions here.
+// Mission Control (M9 W1, enriched W2): one screen, status of ALL projects at a glance —
+// the core "which session needs me" job. Attention status + waiting message come from the
+// live poll App already runs; git from the slow cross-project poll. Waiting rows float to
+// the top ordered by how long they've waited (the longest-waiting queue). Click to jump.
 export function MissionControl({
   projects,
   activeId,
-  states,
+  attention,
+  failed,
   git,
   onSelect,
   onClose
 }: Props): JSX.Element {
   const t = useT()
-  // Attention first (waiting, then working), then the rest — surface what needs you.
-  const rank = (s: ProjectActivity | undefined): number =>
-    s === 'waiting' ? 0 : s === 'working' ? 1 : 2
-  const ordered = [...projects].sort((a, b) => rank(states[a.id]) - rank(states[b.id]))
+  // Waiting first (longest wait leads), then working, then idle.
+  const rank = (id: ProjectId): number => {
+    const s = attention[id]?.status
+    return s === 'waiting' ? 0 : s === 'working' ? 1 : 2
+  }
+  const ordered = [...projects].sort((a, b) => {
+    const r = rank(a.id) - rank(b.id)
+    if (r !== 0) return r
+    // Within waiting, oldest `since` (longest wait) first.
+    return (attention[a.id]?.since ?? 0) - (attention[b.id]?.since ?? 0)
+  })
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -34,11 +43,12 @@ export function MissionControl({
         <h2>{t('mission.title')}</h2>
         <div className="mission-list">
           {ordered.map((p) => {
-            const status = states[p.id]
+            const att = attention[p.id]
+            const status = att?.status
             const g = git[p.id]
             const label =
               status === 'waiting'
-                ? t('tabs.waiting')
+                ? t(att?.kind === 'permission' ? 'tabs.waitPermission' : 'tabs.waiting')
                 : status === 'working'
                   ? t('tabs.working')
                   : t('mission.idle')
@@ -51,9 +61,18 @@ export function MissionControl({
                   onClose()
                 }}
               >
-                <span className={`mission-dot ${status ?? 'idle'}`} title={label} />
+                <span
+                  className={`mission-dot ${status ?? 'idle'}${status === 'waiting' && att?.kind === 'permission' ? ' permission' : ''}`}
+                  title={label}
+                />
                 <span className="mission-name">{p.name}</span>
-                <span className={`mission-status ${status ?? 'idle'}`}>{label}</span>
+                <span className="mission-meta">
+                  <span className={`mission-status ${status ?? 'idle'}`}>{label}</span>
+                  {status === 'waiting' && att?.message && (
+                    <span className="mission-msg">{att.message}</span>
+                  )}
+                  {failed[p.id] && <span className="mission-failed">{t('tabs.runFailed')}</span>}
+                </span>
                 {g?.isRepo && (
                   <span className="mission-git">
                     <span className="mission-branch">{g.branch || '—'}</span>

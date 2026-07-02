@@ -8,6 +8,21 @@ export type ProjectId = string
  *  'waiting' on a Notification, 'idle' otherwise. */
 export type ProjectActivity = 'working' | 'waiting' | 'idle'
 
+/** How a 'waiting' state was classified from its Notification text (M9 W2). 'permission' =
+ *  a quick allow/deny reflex; 'question' = needs thought; '' for non-waiting. */
+export type WaitingKind = 'permission' | 'question' | ''
+
+/** Richer per-project attention (M9 W2): status + the latest waiting message (for the tab
+ *  preview + longest-waiting queue). message/kind are '' unless status is 'waiting'. */
+export interface ProjectAttention {
+  status: ProjectActivity
+  /** the waiting Notification text, '' otherwise */
+  message: string
+  /** epoch ms of the winning event — orders the longest-waiting queue */
+  since: number
+  kind: WaitingKind
+}
+
 /** Stable terminal identity within a project. */
 export type TerminalId = string
 
@@ -122,6 +137,12 @@ export interface TerminalExitEvent {
   id: TerminalId
   exitCode: number
   signal?: number
+  /** Project the terminal belonged to; '' when the session was already gone (user-killed /
+   *  project removed) — in that case the exit must NOT be read as a failure. M9 W2. */
+  projectId?: ProjectId
+  /** The command the terminal ran, so the renderer can tell a run/test/build from the
+   *  interactive Claude/shell session before flagging a failure. M9 W2. */
+  command?: string
 }
 
 export interface AppState {

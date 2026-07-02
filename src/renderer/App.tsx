@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { GitSummary, ProjectActivity } from '../shared/types'
+import type { GitSummary, ProjectAttention, WaitingKind } from '../shared/types'
 import { useCockpit } from './state/useCockpit'
 import { useLayout } from './state/useLayout'
 import { isTypingTarget } from './state/keys'
@@ -16,6 +16,14 @@ import { CommandPalette, type Command } from './components/CommandPalette'
 import { MissionControl } from './components/MissionControl'
 import { useT } from './i18n'
 
+// Classify a Notification's text for typed waiting (M9 W2) — mirrors the backend so the
+// instant onNotify update matches the next poll. Permission prompts are a quick reflex;
+// everything else needs thought.
+function classifyWaiting(message: string): WaitingKind {
+  const m = message.toLowerCase()
+  return m.includes('permission') || m.includes('разреш') ? 'permission' : 'question'
+}
+
 export function App(): JSX.Element {
   const t = useT()
   const cockpit = useCockpit()
@@ -29,17 +37,19 @@ export function App(): JSX.Element {
   const activeId = cockpit.activeProject?.id ?? null
   const layout = useLayout(activeId ?? '__none__')
   const [hooksOffer, setHooksOffer] = useState(false)
-  const [projectStates, setProjectStates] = useState<Record<string, ProjectActivity>>({})
+  const [attention, setAttention] = useState<Record<string, ProjectAttention>>({})
   const [gitByProject, setGitByProject] = useState<Record<string, GitSummary>>({})
+  // Projects whose last background run/test/build exited non-zero (M9 W2). Cleared on focus.
+  const [failed, setFailed] = useState<Record<string, boolean>>({})
 
-  // Poll per-project attention status (working/waiting/idle) from the hook logs (M8.1).
-  // Runs immediately on ready (subsumes the startup waiting-seed) then every 2s.
+  // Poll per-project attention (status + waiting message + kind + ts) from the hook logs
+  // (M8.1 status, M9 W2 preview). Runs immediately on ready then every 2s.
   useEffect(() => {
     if (!cockpit.ready) return
     let alive = true
     const tick = (): void => {
-      window.cockpit.getProjectStates().then((s) => {
-        if (alive) setProjectStates(s)
+      window.cockpit.getProjectAttention().then((a) => {
+        if (alive) setAttention(a)
       })
     }
     tick()
@@ -51,13 +61,37 @@ export function App(): JSX.Element {
   }, [cockpit.ready])
 
   // Instant waiting on a Notification (don't wait for the next poll) for non-active projects.
+  // Carries the message text so the tab preview + queue update immediately.
   useEffect(() => {
     return window.cockpit.onNotify((e) => {
       if (e.projectId && e.projectId !== activeId) {
-        setProjectStates((prev) => ({ ...prev, [e.projectId as string]: 'waiting' }))
+        const pid = e.projectId
+        setAttention((prev) => ({
+          ...prev,
+          [pid]: {
+            status: 'waiting',
+            message: e.message ?? '',
+            since: Date.now(),
+            kind: classifyWaiting(e.message ?? '')
+          }
+        }))
       }
     })
   }, [activeId])
+
+  // Flag a failed background run/test/build on its project tab (M9 W2). The exit event now
+  // carries projectId + command; ignore user-killed sessions (empty projectId) and the
+  // interactive Claude/shell (empty command or command == the project's autoLaunch).
+  const projectsForExit = cockpit.state.projects
+  useEffect(() => {
+    return window.cockpit.onTerminalExit((e) => {
+      if (!e.projectId || e.exitCode === 0 || !e.command) return
+      const proj = projectsForExit.find((p) => p.id === e.projectId)
+      if (proj && e.command === proj.settings.autoLaunchCommand) return
+      if (e.projectId === activeId) return // you're watching it — no need to flag
+      setFailed((prev) => ({ ...prev, [e.projectId as string]: true }))
+    })
+  }, [projectsForExit, activeId])
 
   // Slow cross-project git poll (M9 W1). Facts for the tab dirty-count + Mission Control;
   // deliberately unhurried (8s) and one-shot per project — never the live-watched hot path
@@ -110,6 +144,8 @@ export function App(): JSX.Element {
   projectsRef.current = projects
   const activeIdRef = useRef(activeId)
   activeIdRef.current = activeId
+  const attentionRef = useRef(attention)
+  attentionRef.current = attention
   const overlayOpen = adding || globalClaude || appSettings || mission || hooksOffer
   const overlayRef = useRef(overlayOpen)
   overlayRef.current = overlayOpen
@@ -133,6 +169,18 @@ export function App(): JSX.Element {
       if (isTypingTarget(e) || overlayRef.current) return
       const list = projectsRef.current
       if (list.length === 0) return
+      // Cmd+↩ — jump to the longest-waiting project (oldest waiting `since`).
+      if (e.key === 'Enter') {
+        const att = attentionRef.current
+        const waiting = list
+          .filter((p) => att[p.id]?.status === 'waiting')
+          .sort((a, b) => (att[a.id]?.since ?? 0) - (att[b.id]?.since ?? 0))
+        if (waiting[0]) {
+          e.preventDefault()
+          setActiveProjectRef.current(waiting[0].id)
+        }
+        return
+      }
       if (e.key >= '1' && e.key <= '9') {
         // Cmd+9 = last (browser convention); Cmd+1..8 = that index.
         const idx = e.key === '9' ? list.length - 1 : Number(e.key) - 1
@@ -165,12 +213,18 @@ export function App(): JSX.Element {
     })
   }, [setActiveProject])
 
-  // Focusing a waiting project acknowledges it — drop the waiting status (the poll refills the
-  // real working/idle within ~2s). Working/idle on the active project stay as-is.
+  // Focusing a project acknowledges it — drop its waiting status and any failed flag (the
+  // poll refills the real working/idle within ~2s). Working/idle stay as-is.
   useEffect(() => {
     if (!activeId) return
-    setProjectStates((prev) => {
-      if (prev[activeId] !== 'waiting') return prev
+    setAttention((prev) => {
+      if (prev[activeId]?.status !== 'waiting') return prev
+      const next = { ...prev }
+      delete next[activeId]
+      return next
+    })
+    setFailed((prev) => {
+      if (!prev[activeId]) return prev
       const next = { ...prev }
       delete next[activeId]
       return next
@@ -350,7 +404,8 @@ export function App(): JSX.Element {
           onAdd={() => setAdding(true)}
           onClose={cockpit.removeProject}
           onReorder={cockpit.reorderProjects}
-          states={projectStates}
+          attention={attention}
+          failed={failed}
           git={gitByProject}
         />
         <div className="topbar-right">
@@ -465,7 +520,8 @@ export function App(): JSX.Element {
         <MissionControl
           projects={state.projects}
           activeId={activeId}
-          states={projectStates}
+          attention={attention}
+          failed={failed}
           git={gitByProject}
           onSelect={cockpit.setActiveProject}
           onClose={() => setMission(false)}

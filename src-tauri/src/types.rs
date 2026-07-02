@@ -175,6 +175,21 @@ pub struct AgentHooksStatus {
     pub installed: bool,
 }
 
+/// Per-project attention (M9 W2): the status plus, for `waiting`, the latest Notification
+/// text and its classified kind. `message`/`kind` are empty for working/idle.
+#[derive(Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectAttention {
+    /// working | waiting | idle
+    pub status: String,
+    /// the waiting Notification text, "" otherwise
+    pub message: String,
+    /// epoch ms of the winning event (drives the longest-waiting queue order)
+    pub since: u64,
+    /// permission | question | "" — classified from the message for typed waiting
+    pub kind: String,
+}
+
 #[derive(Clone, Serialize, Deserialize, Default)]
 pub struct ClaudePermissions {
     pub allow: Vec<String>,

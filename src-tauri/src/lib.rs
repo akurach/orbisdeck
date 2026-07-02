@@ -64,6 +64,11 @@ struct TermData {
 struct TermExit {
     id: String,
     exit_code: i32,
+    /// Which project's terminal exited + what it ran — lets the renderer flag a failed
+    /// background run/test/build on that project's tab (M9 W2). Empty when the session was
+    /// already gone (user-killed / project removed), which must NOT read as a failure.
+    project_id: String,
+    command: String,
 }
 
 fn default_shell() -> String {
@@ -239,12 +244,36 @@ fn spawn_terminal(
                 Err(_) => break,
             }
         }
-        let _ = app2.emit("term-exit", TermExit { id: id2.clone(), exit_code: 0 });
-        if let Some(pty) = app2.try_state::<Pty>() {
-            if let Some(s) = pty.sessions.lock().unwrap().get_mut(&id2) {
-                s.info.alive = false;
+        // Capture the real exit code (portable_pty was emitting a hardcoded 0). Poll try_wait
+        // without holding the sessions lock across a blocking wait — post-EOF the child is
+        // essentially reaped, so the first probe almost always succeeds. If the session is
+        // already gone (kill_terminal / remove_project), leave project_id empty so the renderer
+        // treats it as a deliberate close, not a failed run.
+        let mut exit_code = 0i32;
+        let mut project_id = String::new();
+        let mut command = String::new();
+        for _ in 0..100 {
+            let Some(pty) = app2.try_state::<Pty>() else { break };
+            let mut sessions = pty.sessions.lock().unwrap_or_else(|e| e.into_inner());
+            let Some(s) = sessions.get_mut(&id2) else { break };
+            s.info.alive = false;
+            project_id = s.info.project_id.clone();
+            command = s.info.command.clone();
+            match s._child.try_wait() {
+                Ok(Some(status)) => {
+                    exit_code = status.exit_code() as i32;
+                    break;
+                }
+                _ => {
+                    drop(sessions);
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
             }
         }
+        let _ = app2.emit(
+            "term-exit",
+            TermExit { id: id2.clone(), exit_code, project_id, command },
+        );
     });
 
     Ok(info)
@@ -378,6 +407,51 @@ fn get_project_states(store: State<Store>) -> std::collections::HashMap<String, 
         }
     }
     best.into_iter().map(|(id, (_, s))| (id, s)).collect()
+}
+/// Richer per-project attention (M9 W2): status + the latest waiting message + its kind +
+/// the event ts (for the longest-waiting queue). Same cwd→project longest-prefix mapping as
+/// `get_project_states`; supersedes it in the renderer while that stays for back-compat.
+#[tauri::command]
+fn get_project_attention(
+    store: State<Store>,
+) -> std::collections::HashMap<String, ProjectAttention> {
+    let st = store.get_state();
+    let mut best: std::collections::HashMap<String, (u64, ProjectAttention)> =
+        std::collections::HashMap::new();
+    for (cwd, ts, status, message) in agents::latest_cwd_attention() {
+        let proj = st
+            .projects
+            .iter()
+            .filter(|p| {
+                cwd == p.settings.path || cwd.starts_with(&format!("{}/", p.settings.path))
+            })
+            .max_by_key(|p| p.settings.path.len());
+        if let Some(p) = proj {
+            let e = best.entry(p.id.clone()).or_insert((0, ProjectAttention::default()));
+            if ts >= e.0 {
+                let kind = if status == "waiting" {
+                    let m = message.to_lowercase();
+                    if m.contains("permission") || m.contains("разреш") {
+                        "permission"
+                    } else {
+                        "question"
+                    }
+                } else {
+                    ""
+                };
+                *e = (
+                    ts,
+                    ProjectAttention {
+                        status: status.clone(),
+                        message: message.clone(),
+                        since: ts,
+                        kind: kind.to_string(),
+                    },
+                );
+            }
+        }
+    }
+    best.into_iter().map(|(id, (_, a))| (id, a)).collect()
 }
 #[tauri::command]
 fn get_note(store: State<Store>, project_id: String) -> String {
@@ -651,6 +725,7 @@ pub fn run() {
             mark_agent_hooks_prompted,
             get_waiting_projects,
             get_project_states,
+            get_project_attention,
             get_note,
             set_note,
             get_git_summary,

@@ -19,6 +19,7 @@ import type {
   DockerStatus,
   FileContent,
   ProjectActivity,
+  ProjectAttention,
   GitSummary,
   GlobalClaudeConfig,
   Project,
@@ -85,6 +86,9 @@ export interface CockpitApi {
   /** Per-project attention status from the hook state/notify logs (M8.1). Projects absent
    *  from the map are idle. Polled to drive the colored tab status dots. */
   getProjectStates(): Promise<Record<ProjectId, ProjectActivity>>
+  /** Richer per-project attention (M9 W2): status + latest waiting message + kind + ts.
+   *  Supersedes getProjectStates in the renderer (tab preview, longest-waiting queue). */
+  getProjectAttention(): Promise<Record<ProjectId, ProjectAttention>>
 
   // --- notes (M6): per-project free text ---
   getNote(projectId: ProjectId): Promise<string>

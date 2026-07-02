@@ -2201,3 +2201,36 @@ body {
 .mission-dirty {
   color: var(--yellow);
 }
+
+/* --- M9 W2: typed waiting + failed-run signals --- */
+/* Permission = a quick allow/deny reflex; a thin ring sets it apart from a real question. */
+.project-tab-badge.permission {
+  background: #e0a52a;
+  box-shadow: 0 0 0 2px #e0a52a44;
+}
+.project-tab-badge.failed {
+  background: var(--red);
+}
+.mission-dot.permission {
+  background: #e0a52a;
+  box-shadow: 0 0 0 2px #e0a52a44;
+}
+.mission-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.mission-msg {
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+.mission-failed {
+  font-size: 11px;
+  color: var(--red);
+}

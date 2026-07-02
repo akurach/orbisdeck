@@ -45,7 +45,9 @@ const ru: Record<string, string> = {
   // project tabs
   'tabs.closeConfirm': 'Закрыть проект «{name}»? Его терминалы будут остановлены.',
   'tabs.waiting': 'Ждёт ответа',
+  'tabs.waitPermission': 'Ждёт разрешения',
   'tabs.working': 'Claude работает',
+  'tabs.runFailed': 'Команда завершилась с ошибкой',
   'tabs.closeProject': 'Закрыть проект',
   'tabs.addProject': 'Добавить проект',
   'tabs.gitDirty': '{n} изменений',
@@ -316,7 +318,9 @@ const en: Record<string, string> = {
   // project tabs
   'tabs.closeConfirm': 'Close project "{name}"? Its terminals will be stopped.',
   'tabs.waiting': 'Waiting for response',
+  'tabs.waitPermission': 'Waiting for permission',
   'tabs.working': 'Claude is working',
+  'tabs.runFailed': 'Command exited with an error',
   'tabs.closeProject': 'Close project',
   'tabs.addProject': 'Add project',
   'tabs.gitDirty': '{n} changes',

@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react'
-import type { GitSummary, Project, ProjectActivity, ProjectId } from '../../shared/types'
+import type { GitSummary, Project, ProjectAttention, ProjectId } from '../../shared/types'
 import { moveItem, useTabReorder } from '../state/useTabReorder'
 import { useT } from '../i18n'
 
@@ -10,7 +10,8 @@ interface Props {
   onAdd: () => void
   onClose: (id: ProjectId) => void
   onReorder: (ids: ProjectId[]) => void
-  states: Record<string, ProjectActivity>
+  attention: Record<string, ProjectAttention>
+  failed: Record<string, boolean>
   git: Record<string, GitSummary>
 }
 
@@ -21,7 +22,8 @@ export function ProjectTabs({
   onAdd,
   onClose,
   onReorder,
-  states,
+  attention,
+  failed,
   git
 }: Props): JSX.Element {
   const t = useT()
@@ -35,10 +37,18 @@ export function ProjectTabs({
   return (
     <div className="project-tabs">
       {projects.map((p, i) => {
-        const status = states[p.id]
+        const att = attention[p.id]
+        const status = att?.status
         const dot = status === 'waiting' || status === 'working'
+        // Waiting preview: prefer the real message, else a kind label.
+        const waitTitle =
+          status === 'waiting'
+            ? att?.message ||
+              t(att?.kind === 'permission' ? 'tabs.waitPermission' : 'tabs.waiting')
+            : t('tabs.working')
         const g = git[p.id]
         const dirty = g?.isRepo ? g.changed : 0
+        const isFailed = failed[p.id]
         return (
         <div
           key={p.id}
@@ -48,9 +58,12 @@ export function ProjectTabs({
         >
           {dot && (
             <span
-              className={`project-tab-badge ${status}`}
-              title={t(status === 'working' ? 'tabs.working' : 'tabs.waiting')}
+              className={`project-tab-badge ${status}${status === 'waiting' && att?.kind === 'permission' ? ' permission' : ''}`}
+              title={waitTitle}
             />
+          )}
+          {isFailed && (
+            <span className="project-tab-badge failed" title={t('tabs.runFailed')} />
           )}
           <span className="project-tab-name">{p.name}</span>
           {dirty > 0 && (

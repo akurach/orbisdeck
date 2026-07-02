@@ -555,6 +555,66 @@ pub fn latest_cwd_states() -> Vec<(String, u64, String)> {
         .collect()
 }
 
+/// Like `latest_cwd_states` but also carries the waiting `message` (empty for working/idle):
+/// (cwd, ts, status, message). Powers the per-project attention preview + typed waiting (M9 W2).
+pub fn latest_cwd_attention() -> Vec<(String, u64, String, String)> {
+    use std::collections::HashMap;
+    const STALE_MS: u64 = 30 * 60 * 1000;
+    let now = now_ms();
+    // cwd -> (ts, status, message)
+    let mut latest: HashMap<String, (u64, String, String)> = HashMap::new();
+    let mut consider = |ts: u64, cwd: &str, status: &str, message: &str| {
+        if cwd.is_empty() {
+            return;
+        }
+        let e = latest
+            .entry(cwd.to_string())
+            .or_insert((0, String::new(), String::new()));
+        if ts >= e.0 {
+            *e = (ts, status.to_string(), message.to_string());
+        }
+    };
+
+    let states = read_log_capped(&od_dir().join("state.jsonl"));
+    for line in states.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let Ok(e) = serde_json::from_str::<Value>(line) else { continue };
+        let ts = e.get("ts").and_then(|t| t.as_u64()).unwrap_or(0);
+        let cwd = e.get("cwd").and_then(|c| c.as_str()).unwrap_or("");
+        let status = match e.get("kind").and_then(|k| k.as_str()).unwrap_or("") {
+            "busy" => "working",
+            "idle" => "idle",
+            _ => continue,
+        };
+        consider(ts, cwd, status, "");
+    }
+
+    let notifs = read_log_capped(&od_dir().join("notify.jsonl"));
+    for line in notifs.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let Ok(e) = serde_json::from_str::<Value>(line) else { continue };
+        let ts = e.get("ts").and_then(|t| t.as_u64()).unwrap_or(0);
+        let cwd = e.get("cwd").and_then(|c| c.as_str()).unwrap_or("");
+        let msg = e.get("message").and_then(|m| m.as_str()).unwrap_or("");
+        consider(ts, cwd, "waiting", msg);
+    }
+
+    latest
+        .into_iter()
+        .map(|(cwd, (ts, mut status, mut message))| {
+            if status == "working" && now.saturating_sub(ts) > STALE_MS {
+                status = "idle".to_string();
+                message = String::new();
+            }
+            (cwd, ts, status, message)
+        })
+        .collect()
+}
+
 #[allow(dead_code)]
 pub fn ignore() -> OpResult {
     OpResult { ok: true, error: String::new() }
@@ -565,6 +625,10 @@ mod tests {
     use super::*;
     use std::io::Write;
 
+    // HOME is process-global; both tests repoint it, so serialize them (cargo runs a
+    // binary's tests on parallel threads).
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
     fn write_lines(path: &Path, lines: &[String]) {
         let mut f = fs::File::create(path).unwrap();
         for l in lines {
@@ -574,6 +638,7 @@ mod tests {
 
     #[test]
     fn latest_states_merges_prioritizes_recency_and_staleness() {
+        let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         // Point HOME at a temp dir so od_dir() resolves there — never touch real logs.
         let tmp = std::env::temp_dir().join(format!("orbisdeck-test-{}", std::process::id()));
         let od = tmp.join(".claude").join("orbisdeck");
@@ -606,6 +671,44 @@ mod tests {
         assert_eq!(states.get("/proj/b").map(String::as_str), Some("working"));
         assert_eq!(states.get("/proj/c").map(String::as_str), Some("waiting"));
         assert_eq!(states.get("/proj/d").map(String::as_str), Some("idle"));
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn attention_carries_waiting_message_and_clears_it_on_working() {
+        let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let tmp = std::env::temp_dir().join(format!("orbisdeck-att-{}", std::process::id()));
+        let od = tmp.join(".claude").join("orbisdeck");
+        fs::create_dir_all(&od).unwrap();
+        std::env::set_var("HOME", &tmp);
+
+        let now = now_ms();
+        write_lines(
+            &od.join("state.jsonl"),
+            // W: busy (working) — message must be empty
+            &[format!(r#"{{"ts":{},"cwd":"/proj/w","kind":"busy"}}"#, now - 1000)],
+        );
+        write_lines(
+            &od.join("notify.jsonl"),
+            // Q: waiting with a message that should survive to the renderer
+            &[format!(
+                r#"{{"ts":{},"cwd":"/proj/q","message":"Claude needs your permission to use Bash"}}"#,
+                now - 800
+            )],
+        );
+
+        let att: std::collections::HashMap<String, (String, String)> = latest_cwd_attention()
+            .into_iter()
+            .map(|(c, _, s, m)| (c, (s, m)))
+            .collect();
+
+        let q = att.get("/proj/q").unwrap();
+        assert_eq!(q.0, "waiting");
+        assert!(q.1.contains("permission"));
+        let w = att.get("/proj/w").unwrap();
+        assert_eq!(w.0, "working");
+        assert_eq!(w.1, "");
 
         let _ = fs::remove_dir_all(&tmp);
     }
